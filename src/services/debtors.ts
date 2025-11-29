@@ -16,68 +16,77 @@ export async function getAllDebtors() {
   const results: any[] = [];
 
   for (let d of debtors) {
-    // 1. Get active loan
-    const { data: loan } = await supabase
+    const { data: loans } = await supabase
       .from("loans")
       .select("*")
-      .eq("debtor_id", d.debtor_id)
-      .maybeSingle();
+      .eq("debtor_id", d.debtor_id);
 
-    if (!loan) continue;
+    if (!loans || loans.length === 0) continue;
 
-    // 2. Get full repayment schedule
-    const { data: schedule } = await supabase
-      .from("repayment_schedule")
-      .select("*")
-      .eq("loan_id", loan.loan_id)
-      .order("payment_no", { ascending: true });
+    let loansArr: any[] = [];
+    let totalBalance = 0;
+    let earliestDue: string | null = null;
 
-    if (!schedule?.length) continue;
+    for (let loan of loans) {
+      // schedule
+      const { data: schedule } = await supabase
+        .from("repayment_schedule")
+        .select("*")
+        .eq("loan_id", loan.loan_id)
+        .order("payment_no", { ascending: true });
 
-    // 3. Get all payments for the loan
-    const { data: payments } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("loan_id", loan.loan_id)
-      .order("payment_date", { ascending: true });
+      if (!schedule?.length) continue;
 
-    // 4. Build computed schedule (same logic as getDebtor)
-    const scheduleMap = schedule.map((s) => {
-      const partials = (payments || []).filter((p) => p.schedule_id === s.schedule_id);
-      const total_paid = partials.reduce(
-        (sum, p) => sum + Number(p.amount_paid),
-        0
-      );
-      const remaining = Math.max(0, Number(s.amortization) - total_paid);
+      // payments
+      const { data: payments } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("loan_id", loan.loan_id);
 
-      return {
-        ...s,
-        total_paid,
-        remaining,
-        is_fully_paid: remaining <= 0.01,
-      };
-    });
+      const scheduleMap = schedule.map((s) => {
+        const paid = (payments || [])
+          .filter((p) => p.schedule_id === s.schedule_id)
+          .reduce((sum, p) => sum + Number(p.amount_paid), 0);
 
-    // 5. Determine next unpaid — EXACT same logic as DebtorDetail
-    const next =
-      scheduleMap.find((s) => !s.is_fully_paid) ??
-      scheduleMap[scheduleMap.length - 1];
+        const remaining = Math.max(0, Number(s.amortization) - paid);
 
-    // 6. Push final row result
+        return {
+          ...s,
+          remaining,
+          is_fully_paid: remaining <= 0.01,
+        };
+      });
+
+      const next =
+        scheduleMap.find((s) => !s.is_fully_paid) ??
+        scheduleMap[scheduleMap.length - 1];
+
+      loansArr.push({
+        loan_id: loan.loan_id,
+        remaining: next.remaining,
+        next_due: next.due_date,
+      });
+
+      totalBalance += next.remaining;
+
+      if (!earliestDue || new Date(next.due_date) < new Date(earliestDue))
+        earliestDue = next.due_date;
+    }
+
+    // push final row
     results.push({
       id: d.debtor_id,
       name: d.name,
       contact_info: d.contact_info,
-      next_due: next.due_date,
-      balance: next.remaining,
+      earliest_due: earliestDue,
+      total_balance: totalBalance,
+      loans_count: loansArr.length,
+      loans: loansArr,
     });
   }
 
   return results;
 }
-
-
-
 
 /**
  * Get single debtor details with FULL repayment schedule + installments

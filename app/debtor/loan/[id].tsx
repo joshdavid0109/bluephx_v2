@@ -1,23 +1,27 @@
+import { Ionicons } from "@expo/vector-icons";
+import { format, parseISO } from "date-fns";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  FlatList,
+  View,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { parseISO, format } from "date-fns";
 
-import { getLoanDetail } from "../../src/services/loans";
-import { recordPayment } from "../../src/services/payments";
-import PaymentModal from "../../src/components/PaymentModal";
+import PaymentModal from "../../../src/components/PaymentModal";
+import { getLoanDetail } from "../../../src/services/loans";
+import { recordPayment } from "../../../src/services/payments";
 
 export default function LoanDetail() {
-  const { debtor_id, loan_id } = useLocalSearchParams();
+  // const { loan_id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  console.log("LoanDetail params:", params);
+
+  const loan_id = params.id;
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +39,7 @@ export default function LoanDetail() {
     load();
   }, []);
 
+  console.log(data)
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
   const { debtor, loan, schedule, next } = data;

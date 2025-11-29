@@ -1,75 +1,110 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from "react-native";
-import { getAllDebtors } from "../../src/services/debtors";
-import { parseISO, differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { theme } from "../../src/constants/theme";
+import { getAllDebtors } from "../../src/services/debtors";
 
 export default function DebtorsList() {
+  const router = useRouter();
+
   const [debtors, setDebtors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const router = useRouter();
+  const [expanded, setExpanded] = useState<number | null>(null);
 
-  useEffect(() => { load(); }, []);
+  /** Fetch data */
+  useEffect(() => {
+    loadDebtors();
+  }, []);
 
-  async function load() {
+  const loadDebtors = async () => {
     setLoading(true);
     const data = await getAllDebtors();
     setDebtors(data);
     setLoading(false);
-  }
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load().then(() => setRefreshing(false));
+    loadDebtors().then(() => setRefreshing(false));
   }, []);
 
-  function dueStatus(due_date: string) {
-    const diff = differenceInCalendarDays(parseISO(due_date), new Date());
+  /** Compute due status text + color */
+  const dueStatus = (date: string) => {
+    const diff = differenceInCalendarDays(parseISO(date), new Date());
 
     if (diff === 0) return { label: "Due Today", color: theme.colors.primary };
     if (diff === 1) return { label: "Due Tomorrow", color: theme.colors.primaryLight };
     if (diff > 1) return { label: `In ${diff} days`, color: theme.colors.gray };
-    return { label: `Overdue ${Math.abs(diff)} days`, color: theme.colors.danger };
-  }
 
+    return { label: `Overdue ${Math.abs(diff)} days`, color: theme.colors.danger };
+  };
+
+  /** Individual Debtor Row */
   const renderItem = ({ item }: { item: any }) => {
-    const due = dueStatus(item.next_due);
+    const isOpen = expanded === item.id;
 
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push(`/debtor/${item.id}`)}
-      >
-        <View style={{ flex: 1 }}>
+      <View style={styles.card}>
+        {/* Debtor Header */}
+        <TouchableOpacity onPress={() => setExpanded(isOpen ? null : item.id)}>
           <Text style={styles.name}>{item.name}</Text>
-          <Text style={[styles.dueStatus, { color: due.color }]}>{due.label}</Text>
-          <Text style={styles.balance}>
-            ₱{Number(item.balance ?? 0).toLocaleString()}
-              </Text>
-          <Text style={styles.date}>
-            {item.next_due
-              ? "Next due: " + format(parseISO(item.next_due), "MMM d, yyyy")
-              : "No remaining dues"}
+
+          <Text style={styles.subtitle}>
+            {item.loans_count} active loan{item.loans_count > 1 ? "s" : ""}
           </Text>
 
-        </View>
-      </TouchableOpacity>
+          <Text style={styles.balance}>
+            ₱{item.total_balance.toLocaleString()}
+          </Text>
+
+          <Text style={styles.date}>
+            Next due: {format(parseISO(item.earliest_due), "MMM d, yyyy")}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Expanded Loan List */}
+        {isOpen && (
+          <View style={{ marginTop: 12 }}>
+            {item.loans.map((loan: any) => (
+              <TouchableOpacity
+                key={loan.loan_id}
+                style={styles.loanCard}
+                onPress={() => router.push(`/debtor/loan/${loan.loan_id}`)}
+              >
+                <Text style={styles.loanTitle}>Loan #{loan.loan_id}</Text>
+                <Text>Remaining: ₱{loan.remaining.toLocaleString()}</Text>
+                <Text>Due: {format(parseISO(loan.next_due), "MMM d, yyyy")}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.header}>DPE Debtors</Text>
-
 
       <FlatList
         data={debtors}
         keyExtractor={(i) => i.id.toString()}
         renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={() =>
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
           !loading ? (
             <View style={{ padding: 20 }}>
               <Text style={{ textAlign: "center", color: theme.colors.gray }}>
@@ -79,13 +114,23 @@ export default function DebtorsList() {
           ) : null
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { fontSize: 28, fontWeight: "800", marginBottom: 10 , paddingTop: 4,},
+  container: {
+    flex: 1,
+    padding: 15,
+  },
+
+  header: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+
+  /* Debtor Card */
   card: {
     backgroundColor: "#fff",
     padding: 16,
@@ -96,8 +141,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+
   name: { fontSize: 18, fontWeight: "700" },
-  dueStatus: { fontSize: 13, marginTop: 4 },
+  subtitle: { color: "#666", marginTop: 4 },
+
   balance: { fontSize: 16, fontWeight: "700", marginTop: 10 },
   date: { color: theme.colors.gray, marginTop: 4 },
+
+  /* Loan Cards */
+  loanCard: {
+    backgroundColor: "#f8f8f8",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+
+  loanTitle: {
+    fontWeight: "600",
+    fontSize: 16,
+    marginBottom: 4,
+  },
 });

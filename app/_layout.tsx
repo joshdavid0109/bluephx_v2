@@ -1,9 +1,10 @@
-import { Stack } from "expo-router";
+import { Slot } from "expo-router";
+import { LoadingProvider } from "../src/context/LoadingContext";
 
 export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <LoadingProvider>
+      <Slot />
+    </LoadingProvider>
   );
 }

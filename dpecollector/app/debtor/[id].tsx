@@ -8,16 +8,16 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { parseISO, format } from "date-fns";
-
-import { getLoanDetail } from "../../src/services/loans";
+import { getDebtor } from "../../src/services/debtors";
 import { recordPayment } from "../../src/services/payments";
 import PaymentModal from "../../src/components/PaymentModal";
+import { parseISO, format } from "date-fns";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function LoanDetail() {
-  const { debtor_id, loan_id } = useLocalSearchParams();
+export default function DebtorDetail() {
+  const { id } = useLocalSearchParams();
+  const debtor_id = Number(id);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +26,8 @@ export default function LoanDetail() {
 
   async function load() {
     setLoading(true);
-    const loanData = await getLoanDetail(Number(loan_id));
-    setData(loanData);
+    const d = await getDebtor(debtor_id);
+    setData(d);
     setLoading(false);
   }
 
@@ -37,7 +37,7 @@ export default function LoanDetail() {
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
-  const { debtor, loan, schedule, next } = data;
+  const { debtor, schedule, next } = data;
 
   function toggle(id: number | string) {
     const key = String(id);
@@ -47,7 +47,7 @@ export default function LoanDetail() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
       <View style={styles.container}>
-        {/* BACK + HEADER */}
+        {/* HEADER */}
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color="#0a84ff" />
@@ -55,11 +55,11 @@ export default function LoanDetail() {
 
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>{debtor.name}</Text>
-            <Text style={styles.subtitle}>Loan #{loan.loan_id}</Text>
+            <Text style={styles.contact}>{debtor.contact_info}</Text>
           </View>
         </View>
 
-        {/* NEXT DUE CARD */}
+        {/* NEXT DUE BOX */}
         <View style={styles.box}>
           <Text style={styles.label}>Next Due:</Text>
           <Text style={styles.amount}>₱{next.remaining.toLocaleString()}</Text>
@@ -77,7 +77,6 @@ export default function LoanDetail() {
           </TouchableOpacity>
         </View>
 
-        {/* SCHEDULE TITLE */}
         <Text style={styles.sectionTitle}>Payment Schedule</Text>
 
         <FlatList
@@ -85,7 +84,7 @@ export default function LoanDetail() {
           keyExtractor={(i) => String(i.schedule_id)}
           renderItem={({ item }) => (
             <View>
-              {/* Payment Row */}
+              {/* PAYMENT BOX */}
               <View style={styles.scheduleRow}>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -106,7 +105,9 @@ export default function LoanDetail() {
                   </Text>
 
                   {item.is_fully_paid ? (
-                    <Text style={{ color: "green", marginTop: 4 }}>Fully Paid</Text>
+                    <Text style={{ color: "green", marginTop: 4 }}>
+                      Fully Paid
+                    </Text>
                   ) : item.total_paid > 0 ? (
                     <Text style={{ color: "orange", marginTop: 4 }}>
                       Partially Paid
@@ -125,7 +126,7 @@ export default function LoanDetail() {
                 </TouchableOpacity>
               </View>
 
-              {/* Dropdown (partials) */}
+              {/* DROPDOWN AREA */}
               {open[String(item.schedule_id)] && (
                 <View style={styles.dropdown}>
                   <Text style={styles.sectionSub}>Partial Payments</Text>
@@ -169,16 +170,24 @@ export default function LoanDetail() {
 const styles = StyleSheet.create({
   container: { padding: 16, flex: 1 },
 
+  /* Header */
+  title: { fontSize: 24, fontWeight: "700" },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
     paddingTop: 4,
   },
-  backBtn: { paddingRight: 12, paddingVertical: 4 },
-  title: { fontSize: 24, fontWeight: "700" },
-  subtitle: { marginTop: 2, color: "#555" },
+  backBtn: {
+    paddingRight: 12,
+    paddingVertical: 4,
+  },
+  contact: {
+    marginTop: 2,
+    color: "#444",
+  },
 
+  /* Next Due Card */
   box: {
     backgroundColor: "#fff",
     padding: 16,
@@ -196,9 +205,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  sectionTitle: { marginTop: 24, fontWeight: "700", fontSize: 16 },
+  /* Payment Schedule */
+  sectionTitle: {
+    marginTop: 24,
+    fontWeight: "700",
+    fontSize: 16,
+  },
   sectionSub: { fontWeight: "700", fontSize: 14, marginBottom: 6 },
 
+  /* Payment Row */
   scheduleRow: {
     backgroundColor: "#fff",
     padding: 16,
@@ -209,9 +224,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  paymentNo: { fontSize: 16, fontWeight: "700" },
-  scheduleLine: { marginTop: 4, fontSize: 13, color: "#444" },
+  paymentNo: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
 
+  scheduleLine: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#444",
+  },
+
+  /* Dropdown */
   dropdown: {
     backgroundColor: "#fff",
     marginHorizontal: 4,
