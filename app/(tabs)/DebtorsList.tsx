@@ -11,8 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Image } from "react-native";
 import { theme } from "../../src/constants/theme";
 import { getAllDebtors } from "../../src/services/debtors";
+
 
 export default function DebtorsList() {
   const router = useRouter();
@@ -95,7 +97,18 @@ export default function DebtorsList() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>DPE Debtors</Text>
+      <View style={styles.headerContainer}>
+        <View style={styles.headerIcon}>
+          <Image
+            source={{ uri: "https://cwcscejvwfbsrmrjsdxq.supabase.co/storage/v1/object/public/icons/DPE_logo.png" }}
+            style={styles.headerImage}
+            resizeMode="contain"
+          />
+        </View>
+
+        <Text style={styles.headerText}>Debtors</Text>
+      </View>
+
 
       <FlatList
         data={debtors}
@@ -129,6 +142,32 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 10,
   },
+  headerContainer: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  headerIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.colors.primaryLight + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+
+  headerImage: {
+    width: 36,
+    height: 36,
+  },
+
+  headerText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#111",
+  },
+
 
   /* Debtor Card */
   card: {
