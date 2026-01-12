@@ -101,9 +101,23 @@ export default function SideNav() {
 
         {/* MENU */}
         <View style={styles.menu}>
-          <MenuItem icon="home" label="Home" />
-          <MenuItem icon="calendar" label="Calendar" />
-          <MenuItem icon="message-text-outline" label="Peer Review and" />
+          <MenuItem icon="home" label="Home" onPress={async () => {
+            close();
+            router.push("/(drawer)/main"); 
+        }}
+        />
+          <MenuItem icon="calendar" label="Calendar" onPress={
+            async () => {
+              close();
+              router.push("/(drawer)/calendar");
+            }
+          }/>
+          <MenuItem icon="message-text-outline" label="Peer Review and" onPress={
+            async () => {
+              close();
+              router.push("/(drawer)/discussion");
+            }
+          }/>
 
           <Text style={styles.section}>Communicate</Text>
 
