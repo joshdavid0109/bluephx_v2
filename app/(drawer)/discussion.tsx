@@ -1,4 +1,5 @@
 import { useSideNav } from "@/context/SideNavContext";
+import { supabase } from "@/lib/supabase";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 /* ---------- TYPES ---------- */
@@ -17,9 +18,13 @@ import {
 type ForumPost = {
   id: string;
   title: string;
-  author: string;
-  date: string;
-  replies: number;
+  created_at: string;
+  reply_count: number;
+  user: {
+    username: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 };
 
 /* ---------- SCREEN ---------- */
@@ -30,37 +35,58 @@ export default function PeerReviewScreen() {
 
   const [query, setQuery] = useState("");
   const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TEMP: replace with Supabase fetch later
-    setPosts([
-      {
-        id: "1",
-        title: "Forum Post Title",
-        author: "Author Name",
-        date: "Jan 12, 2026",
-        replies: 0,
-      },
-      {
-        id: "2",
-        title: "Forum Post Title",
-        author: "Author Name",
-        date: "Jan 11, 2026",
-        replies: 2,
-      },
-      {
-        id: "3",
-        title: "Forum Post Title",
-        author: "Author Name",
-        date: "Jan 10, 2026",
-        replies: 1,
-      },
-    ]);
+    fetchPosts();
   }, []);
+
+  const fetchPosts = async () => {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("forum_posts")
+      .select(`
+        id,
+        title,
+        created_at,
+        users (
+          username,
+          first_name,
+          last_name
+        ),
+        forum_replies ( id )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch posts:", error);
+      setPosts([]);
+    } else {
+      const mapped = (data ?? []).map((post: any) => ({
+        id: post.id,
+        title: post.title,
+        created_at: post.created_at,
+        reply_count: post.forum_replies?.length ?? 0,
+        user: post.users,
+      }));
+
+      setPosts(mapped);
+    }
+
+    setLoading(false);
+  };
+
 
   const filteredPosts = posts.filter((p) =>
     p.title.toLowerCase().includes(query.toLowerCase())
   );
+
+  const getAuthorName = (user: ForumPost["user"]) => {
+    if (!user) return "Unknown";
+    if (user.username) return user.username;
+    return [user.first_name, user.last_name].filter(Boolean).join(" ") || "User";
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -86,9 +112,7 @@ export default function PeerReviewScreen() {
         />
         <View style={{ marginLeft: 12 }}>
           <Text style={styles.hello}>Hello,</Text>
-          <Text style={styles.subHello}>
-            Hope you are doing well!
-          </Text>
+          <Text style={styles.subHello}>Hope you are doing well!</Text>
         </View>
       </View>
 
@@ -105,7 +129,6 @@ export default function PeerReviewScreen() {
 
       {/* PANEL */}
       <View style={styles.panel}>
-        {/* TITLE + BUTTON */}
         <View style={styles.titleRow}>
           <View style={styles.titleLeft}>
             <MaterialCommunityIcons
@@ -113,55 +136,56 @@ export default function PeerReviewScreen() {
               size={20}
               color="#04183B"
             />
-            <Text style={styles.title}>
-              Peer Review and Discussion
-            </Text>
+            <Text style={styles.title}>Peer Review and Discussion</Text>
           </View>
         </View>
+
         <TouchableOpacity
-            style={styles.postBtn}
-            onPress={() => router.push("/peer-review/new")}
-          >
-            <Text style={styles.postBtnText}>
-              POST A QUESTION
-            </Text>
-          </TouchableOpacity>
+          style={styles.postBtn}
+          onPress={() => router.push("/peer-review/new")}
+        >
+          <Text style={styles.postBtnText}>POST A QUESTION</Text>
+        </TouchableOpacity>
 
         {/* POSTS */}
         <ScrollView showsVerticalScrollIndicator={false}>
-          {filteredPosts.map((post) => (
-            <TouchableOpacity
-              key={post.id}
-              style={styles.card}
-              onPress={() =>
-                router.push(`/peer-review/${post.id}`)
-              }
-            >
-              <Text style={styles.cardTitle}>
-                [{post.title}]
-              </Text>
+          {loading ? (
+            <Text style={{ textAlign: "center", marginTop: 20 }}>
+              Loading...
+            </Text>
+          ) : (
+            filteredPosts.map((post) => (
+              <TouchableOpacity
+                key={post.id}
+                style={styles.card}
+                onPress={() => router.push(`/peer-review/${post.id}`)}
+              >
+                <Text style={styles.cardTitle}>[{post.title}]</Text>
 
-              <Text style={styles.cardMeta}>
-                {post.author} · {post.date}
-              </Text>
-
-              <View style={styles.replyRow}>
-                <Feather
-                  name="message-square"
-                  size={16}
-                  color="#64748B"
-                />
-                <Text style={styles.replyCount}>
-                  {post.replies}
+                <Text style={styles.cardMeta}>
+                  {getAuthorName(post.user)} ·{" "}
+                  {new Date(post.created_at).toLocaleDateString()}
                 </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+
+                <View style={styles.replyRow}>
+                  <Feather
+                    name="message-square"
+                    size={16}
+                    color="#64748B"
+                  />
+                  <Text style={styles.replyCount}>
+                    {post.reply_count ?? 0}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,

@@ -1,5 +1,5 @@
-import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
     SafeAreaView,
@@ -7,115 +7,105 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 
 export default function NewPostScreen() {
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = async () => {
-    if (!title || !content) return;
+  const submitPost = async () => {
+    setLoading(true);
 
-    // 🔜 Replace with Supabase insert
-    console.log("New post:", { title, content });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    router.back();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("forum_posts")
+      .insert({
+        title,
+        content,
+        user_id: user.id,
+      });
+
+    setLoading(false);
+
+    if (!error) router.back();
   };
 
   return (
     <SafeAreaView style={styles.root}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="arrow-left" size={22} color="#04183B" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post a Question</Text>
-      </View>
-
-      {/* FORM */}
       <View style={styles.form}>
-        <Text style={styles.label}>Title</Text>
         <TextInput
-          placeholder="Enter your question title"
+          placeholder="Title"
           value={title}
           onChangeText={setTitle}
           style={styles.input}
         />
 
-        <Text style={styles.label}>Description</Text>
         <TextInput
-          placeholder="Explain your question in detail"
+          placeholder="Describe your question"
           value={content}
           onChangeText={setContent}
-          style={[styles.input, styles.textArea]}
           multiline
+          style={[styles.input, styles.textArea]}
         />
 
         <TouchableOpacity
-          style={[
-            styles.submitBtn,
-            (!title || !content) && { opacity: 0.5 },
-          ]}
-          onPress={onSubmit}
-          disabled={!title || !content}
+          style={styles.btn}
+          onPress={submitPost}
+          disabled={loading}
         >
-          <Text style={styles.submitText}>POST QUESTION</Text>
+          <Text style={styles.btnText}>
+            {loading ? "Posting..." : "POST"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#FFFFFF" },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-  },
-
-  headerTitle: {
-    marginLeft: 12,
-    fontSize: 18,
-    fontFamily: "Poppins_700Bold",
-    color: "#04183B",
+  root: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
   },
 
   form: {
     padding: 16,
   },
 
-  label: {
-    fontSize: 14,
-    fontFamily: "Poppins_600SemiBold",
-    marginBottom: 6,
-  },
-
   input: {
     borderWidth: 1,
     borderColor: "#CBD5E1",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
     fontFamily: "Poppins_400Regular",
+    fontSize: 14,
   },
 
   textArea: {
-    height: 120,
+    height: 140,
     textAlignVertical: "top",
   },
 
-  submitBtn: {
+  btn: {
     backgroundColor: "#04183B",
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
+    marginTop: 8,
   },
 
-  submitText: {
+  btnText: {
     color: "#FFFFFF",
-    fontFamily: "Poppins_700Bold",
     textAlign: "center",
+    fontFamily: "Poppins_700Bold",
+    fontSize: 14,
+    letterSpacing: 1,
   },
 });
