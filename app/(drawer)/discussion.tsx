@@ -4,6 +4,8 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Image,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -36,15 +38,39 @@ export default function PeerReviewScreen() {
   const [query, setQuery] = useState("");
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
 
   useEffect(() => {
     fetchPosts();
+
+    const channel = supabase
+      .channel("forum-posts")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "forum_posts",
+        },
+        () => {
+          fetchPosts(); // ✅ now reliable
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+
+
 
   const fetchPosts = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data: posts, error } = await supabase
       .from("forum_posts")
       .select(`
         id,
@@ -54,28 +80,44 @@ export default function PeerReviewScreen() {
           username,
           first_name,
           last_name
-        ),
-        forum_replies ( id )
+        )
       `)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Failed to fetch posts:", error);
+    if (error || !posts) {
+      console.error(error);
       setPosts([]);
-    } else {
-      const mapped = (data ?? []).map((post: any) => ({
-        id: post.id,
-        title: post.title,
-        created_at: post.created_at,
-        reply_count: post.forum_replies?.length ?? 0,
-        user: post.users,
-      }));
-
-      setPosts(mapped);
+      setLoading(false);
+      return;
     }
 
+    // 🔹 Fetch reply counts separately
+    const { data: counts } = await supabase
+      .from("forum_replies")
+      .select("post_id", { count: "exact", head: false });
+
+    const countMap =
+      counts?.reduce((acc: any, r: any) => {
+        acc[r.post_id] = (acc[r.post_id] || 0) + 1;
+        return acc;
+      }, {}) ?? {};
+
+    const mapped = posts.map((p: any) => ({
+      ...p,
+      reply_count: countMap[p.id] ?? 0,
+    }));
+
+    setPosts(mapped);
     setLoading(false);
   };
+
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchPosts();
+    setRefreshing(false);
+  };
+
 
 
   const filteredPosts = posts.filter((p) =>
@@ -96,11 +138,12 @@ export default function PeerReviewScreen() {
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
-        <MaterialCommunityIcons
-          name="phoenix-framework"
-          size={28}
-          color="#63B3ED"
-        />
+         <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
       </View>
 
       {/* GREETING */}
@@ -148,7 +191,16 @@ export default function PeerReviewScreen() {
         </TouchableOpacity>
 
         {/* POSTS */}
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#04183B"
+            />
+          }
+        >
           {loading ? (
             <Text style={{ textAlign: "center", marginTop: 20 }}>
               Loading...
@@ -180,6 +232,23 @@ export default function PeerReviewScreen() {
               </TouchableOpacity>
             ))
           )}
+
+          {/* FOOTER */}
+          <View style={styles.links}>
+            <View style={styles.linkRow}>
+              <Feather name="globe" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                www.bluephoenix.com
+              </Text>
+            </View>
+
+            <View style={styles.linkRow}>
+              <Feather name="facebook" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                Blue Phoenix Illustrated Reviewers
+              </Text>
+            </View>
+          </View>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -212,6 +281,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: "Poppins_700Bold",
     color: "#FFFFFF",
+  },
+
+   headerLogo: {
+    width: 48,
+    height: 48,
   },
 
   subHello: {
@@ -311,5 +385,22 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 12,
     color: "#64748B",
+  },
+  links: {
+    marginVertical: 20,
+    alignItems: "center",
+  },
+
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+
+  linkText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "#04183B",
   },
 });

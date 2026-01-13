@@ -4,14 +4,14 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -115,7 +115,40 @@ export default function AuthScreen() {
     outputRange: ["#E4E4E4", "#35AAD7"],
   });
 
-  const cleanEmail = email.trim().toLowerCase();
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert(
+        "Email required",
+        "Please enter your email address first."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+          // 👇 IMPORTANT: this must exist in your app
+          redirectTo: "bluephoenix://reset-password",
+        }
+      );
+
+      if (error) throw error;
+
+      Alert.alert(
+        "Password reset sent",
+        "Check your email for the password reset link."
+      );
+    } catch (err: any) {
+      Alert.alert("Reset failed", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    
 
 
   return (
@@ -235,8 +268,11 @@ export default function AuthScreen() {
 
 
         {mode === "login" && (
-          <Text style={styles.forgot}>Forgot Password?</Text>
+          <TouchableOpacity onPress={handleForgotPassword}>
+            <Text style={styles.forgot}>Forgot Password?</Text>
+          </TouchableOpacity>
         )}
+
       </View>
 
       {/* CTA */}

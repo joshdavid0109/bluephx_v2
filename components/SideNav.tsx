@@ -112,7 +112,7 @@ export default function SideNav() {
               router.push("/(drawer)/calendar");
             }
           }/>
-          <MenuItem icon="message-text-outline" label="Peer Review and" onPress={
+          <MenuItem icon="message-text-outline" label="Peer Review and Discussion" onPress={
             async () => {
               close();
               router.push("/(drawer)/discussion");
@@ -121,8 +121,18 @@ export default function SideNav() {
 
           <Text style={styles.section}>Communicate</Text>
 
-          <MenuItem icon="account-group" label="About Us" />
-          <MenuItem icon="help-circle-outline" label="FAQs" />
+          <MenuItem icon="account-group" label="About Us" onPress={
+            async () => {
+              close();
+              router.push("/(drawer)/about");
+            }
+          } />
+          <MenuItem icon="help-circle-outline" label="FAQs" onPress={
+            async () => {
+              close();
+              router.push("/(drawer)/faqs");
+            }
+          }/>
         </View>
 
         {/* LOGOUT */}

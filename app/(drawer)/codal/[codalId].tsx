@@ -4,13 +4,13 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -142,13 +142,20 @@ export default function CodalDetailScreen() {
           )}
 
           {/* FOOTER */}
-          <View style={styles.footer}>
-            <Text style={styles.footerLink}>
-              🌐 www.bluephoenixreview.com
-            </Text>
-            <Text style={styles.footerLink}>
-              📘 Blue Phoenix Illustrated Reviewers
-            </Text>
+          <View style={styles.links}>
+            <View style={styles.linkRow}>
+              <Feather name="globe" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                www.bluephoenix.com
+              </Text>
+            </View>
+
+            <View style={styles.linkRow}>
+              <Feather name="facebook" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                Blue Phoenix Illustrated Reviewers
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </View>
@@ -243,5 +250,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#5FAED8",
     marginVertical: 4,
+  },
+  links: {
+    marginVertical: 20,
+    alignItems: "center",
+  },
+
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+
+  linkText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "#04183B",
   },
 });

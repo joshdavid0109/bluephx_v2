@@ -126,6 +126,17 @@ export default function PostDetailScreen() {
     setReply("");
     fetchReplies();
   };
+  const formatDateTime = (value: string) => {
+    const d = new Date(value);
+    return d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+    };
+
 
   return (
     <SafeAreaView style={styles.root}>
@@ -144,7 +155,8 @@ export default function PostDetailScreen() {
       </View>
 
       {/* CONTENT */}
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content}
+    contentContainerStyle={{ paddingBottom: 120 }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
@@ -161,12 +173,35 @@ export default function PostDetailScreen() {
 
         {replies.map((r) => (
           <View key={r.id} style={styles.reply}>
-            <Text style={styles.replyAuthor}>
-              {users[r.user_id]}
-            </Text>
+            <View style={styles.replyHeaderRow}>
+                <Text style={styles.replyAuthor}>
+                {users[r.user_id]}
+                </Text>
+                <Text style={styles.replyDate}>
+                {formatDateTime(r.created_at)}
+                </Text>
+            </View>
+
             <Text style={styles.replyText}>{r.content}</Text>
-          </View>
+        </View>
         ))}
+
+         {/* FOOTER */}
+        <View style={styles.links}>
+            <View style={styles.linkRow}>
+              <Feather name="globe" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                www.bluephoenix.com
+              </Text>
+            </View>
+
+            <View style={styles.linkRow}>
+              <Feather name="facebook" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                Blue Phoenix Illustrated Reviewers
+              </Text>
+            </View>
+        </View>
       </ScrollView>
 
       {/* REPLY BOX */}
@@ -186,17 +221,45 @@ export default function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  /* ROOT */
   root: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#04183B",
   },
 
+  /* HEADER */
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    alignItems: "center",
+  },
+
+  logo: {
+    width: 40,
+    height: 40,
+  },
+
+  /* CONTENT */
   content: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    marginTop: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 16,
   },
 
+  back: {
+    fontSize: 14,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#63B3ED",
+    marginBottom: 12,
+  },
+
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: "Poppins_700Bold",
     color: "#04183B",
     marginBottom: 4,
@@ -206,7 +269,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Poppins_400Regular",
     color: "#64748B",
-    marginBottom: 14,
+    marginBottom: 16,
   },
 
   body: {
@@ -217,9 +280,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
+  /* REPLIES */
   replyHeader: {
     fontSize: 16,
     fontFamily: "Poppins_700Bold",
+    color: "#04183B",
     marginBottom: 12,
   },
 
@@ -237,6 +302,27 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
+  replyText: {
+    fontSize: 14,
+    fontFamily: "Poppins_400Regular",
+    color: "#334155",
+    lineHeight: 20,
+  },
+  replyHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+   },
+
+  replyDate: {
+    fontSize: 11,
+    fontFamily: "Poppins_400Regular",
+    color: "#94A3B8",
+  },
+
+
+  /* REPLY INPUT */
   replyBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -244,18 +330,37 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
   },
 
   replyInput: {
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
+    color: "#04183B",
   },
 
   send: {
     fontFamily: "Poppins_700Bold",
-    color: "#04183B",
+    color: "#63B3ED",
     marginLeft: 12,
+    fontSize: 14,
+  },
+  links: {
+    marginVertical: 20,
+    alignItems: "center",
+  },
+
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+
+  linkText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "#04183B",
   },
 });
-

@@ -25,15 +25,43 @@ type Codal = {
   codal_title: string;
 };
 
+type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  image_url: string | null;
+};
+
+
 export default function HomeScreen() {
   const [codals, setCodals] = useState<Codal[]>([]);
   const [loading, setLoading] = useState(true);
   const { open } = useSideNav(); // ✅ CORRECT
   const router = useRouter();
+  const [lastSession, setLastSession] = useState<{
+    codal_id: string;
+    chapter_id: string;
+  } | null>(null);
+
+  const [announcement, setAnnouncement] = useState<{
+    id: string;
+    title: string;
+    body: string;
+  } | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+
+  const [isAdmin, setIsAdmin] = useState(false);
+
+
 
 
   useEffect(() => {
     fetchCodals();
+    fetchLastSession();
+    fetchAnnouncement();
+    checkAdminStatus();
+    fetchAnnouncements();
   }, []);
 
   const fetchCodals = async () => {
@@ -50,6 +78,88 @@ export default function HomeScreen() {
 
     setLoading(false);
   };
+
+  const fetchLastSession = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("user_reading_progress")
+      .select("codal_id, chapter_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!error && data) {
+      setLastSession(data);
+    }
+  };
+  const checkAdminStatus = async () => {
+  const admin = await checkAdmin();
+  setIsAdmin(admin);
+};
+
+const fetchAnnouncement = async () => {
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("id, title, body")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!error && data) {
+    setAnnouncement(data);
+  }
+};
+
+const fetchAnnouncements = async () => {
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("id, title, body, image_url")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (!error && data) {
+    setAnnouncements(data);
+  }
+};
+
+
+
+  const checkAdmin = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return false;
+
+    const { data } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+
+    return !!data?.is_admin;
+  };
+
+
+  const deleteAnnouncement = async (id: string) => {
+  const confirm = await new Promise<boolean>((resolve) => {
+    resolve(true); // replace with Alert.confirm if you want
+  });
+
+  if (!confirm) return;
+
+  await supabase
+    .from("announcements")
+    .update({ is_active: false })
+    .eq("id", id);
+
+  fetchAnnouncements();
+};
 
 
   return (
@@ -83,11 +193,25 @@ export default function HomeScreen() {
       </View>
 
       {/* CONTINUE BUTTON */}
-      <TouchableOpacity style={styles.continueBtn}>
+      <TouchableOpacity
+        style={[
+          styles.continueBtn,
+          !lastSession && { opacity: 0.5 },
+        ]}
+        disabled={!lastSession}
+        onPress={() => {
+          if (!lastSession) return;
+
+          router.push(
+            `/chapter/${lastSession.chapter_id}`
+          );
+        }}
+      >
         <Text style={styles.continueText}>
           CONTINUE PREVIOUS SESSION
         </Text>
       </TouchableOpacity>
+
 
       {/* WHITE CONTENT PANEL */}
       <View style={styles.panel}>
@@ -105,7 +229,73 @@ export default function HomeScreen() {
           </View>
 
           {/* Announcement */}
-          <View style={styles.announcement} />
+          <View style={styles.announcementContainer}>
+            {announcements.length === 0 ? (
+              <Text style={styles.announcementEmpty}>
+                No announcements yet.
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+              >
+                {announcements.map((a) => (
+                  <View key={a.id} style={styles.announcementCard}>
+                    {a.image_url && (
+                      <Image
+                        source={{ uri: a.image_url }}
+                        style={styles.announcementImage}
+                      />
+                    )}
+
+                    <Text style={styles.announcementTitle}>
+                      {a.title}
+                    </Text>
+
+                    <Text style={styles.announcementBody}>
+                      {a.body}
+                    </Text>
+
+                    {isAdmin && (
+                      <View style={styles.adminActions}>
+                        <TouchableOpacity
+                          style={styles.adminBtn}
+                          onPress={() =>
+                            router.push(`/admin/announcements/edit/${a.id}`)
+                          }
+                        >
+                          <Feather name="edit-3" size={14} color="#FFF" />
+                          <Text style={styles.adminBtnText}>Edit</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.adminBtn, styles.deleteBtn]}
+                          onPress={() => deleteAnnouncement(a.id)}
+                        >
+                          <Feather name="trash-2" size={14} color="#FFF" />
+                          <Text style={styles.adminBtnText}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.addAnnouncementBtn}
+                onPress={() => router.push("/admin/announcements/new")}
+              >
+                <Feather name="plus" size={16} color="#FFF" />
+                <Text style={styles.addAnnouncementText}>
+                  Add Announcement
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
 
           {/* Search */}
           <View style={styles.searchBox}>
@@ -258,11 +448,50 @@ const styles = StyleSheet.create({
   },
 
   announcement: {
-    height: 180,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: "#E5EEF6",
     borderRadius: 14,
+    padding: 16,
     marginBottom: 14,
   },
+
+  announcementTitle: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 14,
+    color: "#04183B",
+    marginBottom: 6,
+  },
+
+  announcementBody: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: "#334155",
+    lineHeight: 20,
+  },
+
+  announcementEmpty: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: "#64748B",
+  },
+
+  announcementBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    marginTop: 10,
+    backgroundColor: "#04183B",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+
+  announcementBtnText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 12,
+    color: "#FFFFFF",
+  },
+
 
   searchBox: {
     flexDirection: "row",
@@ -366,4 +595,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#04183B",
   },
+  announcementContainer: {
+  marginBottom: 14,
+},
+
+announcementCard: {
+  width: 300,
+  backgroundColor: "#E5EEF6",
+  borderRadius: 14,
+  padding: 16,
+  marginRight: 12,
+},
+
+announcementImage: {
+  width: "100%",
+  height: 140,
+  borderRadius: 12,
+  marginBottom: 10,
+},
+
+adminActions: {
+  flexDirection: "row",
+  justifyContent: "flex-end",
+  marginTop: 10,
+},
+
+adminBtn: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#04183B",
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 8,
+  marginLeft: 8,
+},
+
+deleteBtn: {
+  backgroundColor: "#DC2626",
+},
+
+adminBtnText: {
+  marginLeft: 6,
+  fontFamily: "Poppins_600SemiBold",
+  fontSize: 12,
+  color: "#FFFFFF",
+},
+
+addAnnouncementBtn: {
+  flexDirection: "row",
+  alignItems: "center",
+  alignSelf: "flex-end",
+  marginTop: 10,
+  backgroundColor: "#04183B",
+  paddingVertical: 8,
+  paddingHorizontal: 14,
+  borderRadius: 10,
+},
+
+addAnnouncementText: {
+  marginLeft: 6,
+  fontFamily: "Poppins_600SemiBold",
+  fontSize: 12,
+  color: "#FFFFFF",
+},
+
 });

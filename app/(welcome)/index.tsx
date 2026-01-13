@@ -5,13 +5,30 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   Image,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 const MIN_SPLASH_TIME = 1200; // ms (try 1000–1500)
+
+const PAGES = [
+  {
+    text: "Prepare smarter. Pass with confidence.",
+  },
+  {
+    text: "Illustrated codals made easy to understand.",
+  },
+  {
+    text: "Continue where you left off anytime.",
+  },
+];
+
 
 
 export default function WelcomeScreen() {
@@ -22,6 +39,8 @@ export default function WelcomeScreen() {
   // Bottom card animation
   const cardTranslateY = useRef(new Animated.Value(400)).current;
   const loadingOpacity = useRef(new Animated.Value(1)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+
   
 
   useEffect(() => {
@@ -56,8 +75,9 @@ export default function WelcomeScreen() {
 
           Animated.spring(cardTranslateY, {
             toValue: 0,
-            friction: 8,
-            tension: 70,
+            damping: 14,
+            stiffness: 120,
+            mass: 0.8,
             useNativeDriver: true,
           }).start();
         });
@@ -115,17 +135,97 @@ export default function WelcomeScreen() {
 
           <Text style={styles.welcome}>WELCOME</Text>
 
-          <View style={styles.pager}>
-            <Text style={styles.pagerText}>
-              Prepare smarter. Pass with confidence.
-            </Text>
+          <View style={styles.pagerContainer}>
+            <Animated.ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                { useNativeDriver: false }
+              )}
+            >
+            
+              {PAGES.map((item, index) => {
+                const inputRange = [
+                  (index - 1) * SCREEN_WIDTH,
+                  index * SCREEN_WIDTH,
+                  (index + 1) * SCREEN_WIDTH,
+                ];
+
+                const translateX = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [-400, -10, -30],
+                  extrapolate: "clamp",
+                });
+
+                const opacity = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [0, 1, 0],
+                  extrapolate: "clamp",
+                });
+
+                return (
+                  <View
+                    key={index}
+                    style={[styles.pagerPage, { width: SCREEN_WIDTH }]}
+                  >
+                    <Animated.Text
+                      style={[
+                        styles.pagerText,
+                        {
+                          opacity,
+                          transform: [{ translateX }],
+                        },
+                      ]}
+                    >
+                      {item.text}
+                    </Animated.Text>
+                  </View>
+                );
+              })}
+            </Animated.ScrollView>
           </View>
 
-          <View style={styles.dots}>
-            <View style={styles.dotInactive} />
-            <View style={styles.dotActive} />
-            <View style={styles.dotInactive} />
-          </View>
+
+
+         <View style={styles.dots}>
+          {PAGES.map((_, i) => {
+            const inputRange = [
+              (i - 1) * SCREEN_WIDTH,
+              i * SCREEN_WIDTH,
+              (i + 1) * SCREEN_WIDTH,
+            ];
+
+            const scale = scrollX.interpolate({
+              inputRange,
+              outputRange: [1, 1.6, 1],
+              extrapolate: "clamp",
+            });
+
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.4, 1, 0.4],
+              extrapolate: "clamp",
+            });
+
+            return (
+              <Animated.View
+                key={i}
+                style={[
+                  styles.dot,
+                  {
+                    transform: [{ scale }],
+                    opacity,
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+
+
 
           <TouchableOpacity style={styles.button} onPress={onGetStarted}>
             <Text style={styles.buttonText}>Get Started</Text>
@@ -220,17 +320,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  pagerText: {
-    fontFamily: "Poppins_400Regular",
-    color: "#888",
+  pagerContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
+
 
   dots: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 12,
-  },
+  }, 
 
   dotInactive: {
     width: 12,
@@ -261,4 +361,28 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_700Bold",
     color: "#04183B",
   },
+  pagerPage: {
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 24,
+},
+
+pagerText: {
+  fontFamily: "Poppins_400Regular",
+  fontSize: 15,
+  lineHeight: 22,
+  color: "#6B7280", // softer gray
+  textAlign: "center",
+  maxWidth: "85%",
+},
+
+
+dot: {
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+  backgroundColor: "#04183B",
+  marginHorizontal: 6,
+},
+
 });

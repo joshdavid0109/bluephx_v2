@@ -4,14 +4,14 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,7 +22,12 @@ const SCROLL_THRESHOLD = 16;
 type Chapter = {
   id: string;
   title: string;
+  subtopic_id: string;
+  subtopics?: {
+    codal_id: string;
+  };
 };
+
 
 type ChapterSection = {
   id: string;
@@ -57,6 +62,9 @@ export default function ChapterSectionsScreen() {
     "left" | "justify"
     >("left");
 
+    const lastSavedSection = useRef<number | null>(null);
+
+
 
 
 
@@ -67,16 +75,29 @@ export default function ChapterSectionsScreen() {
   const fetchChapterAndSections = async () => {
     try {
       // 1️⃣ Chapter title
-      const { data: chap } = await supabase
+      const { data: chap, error } = await supabase
         .from("chapters")
-        .select("id, title")
+        .select(`
+          id,
+          title,
+          subtopic_id,
+          subtopics (
+            codal_id
+          )
+        `)
         .eq("id", chapterId)
         .single();
 
-      if (chap) setChapter(chap);
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setChapter(chap);
+
 
       // 2️⃣ Sections (ORDER IS CRITICAL)
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("chapter_sections")
         .select(
           "id, section_number, content, type, image_url"
@@ -102,39 +123,41 @@ export default function ChapterSectionsScreen() {
     const PANEL_HIDE_Y = -120;
 
     const onScroll = (event: any) => {
-        const currentY = event.nativeEvent.contentOffset.y;
-        const diff = currentY - lastScrollY.current;
+      const currentY = event.nativeEvent.contentOffset.y;
+      const diff = currentY - lastScrollY.current;
 
-        // Ignore jitter
-        if (Math.abs(diff) < SCROLL_THRESHOLD) {
-            lastScrollY.current = currentY;
-            return;
-        }
-
-        // 🔽 scrolling DOWN → collapse panel (push DOWN)
+      // --- PANEL ANIMATION (unchanged) ---
+      if (Math.abs(diff) > SCROLL_THRESHOLD) {
         if (diff > 0 && !panelHidden.current) {
-            panelHidden.current = true;
-
-            Animated.timing(panelTranslateY, {
+          panelHidden.current = true;
+          Animated.timing(panelTranslateY, {
             toValue: PANEL_COLLAPSED_Y,
             duration: 240,
             useNativeDriver: true,
-            }).start();
+          }).start();
         }
 
-        // 🔼 scrolling UP → expand panel (pull UP)
         if (diff < 0 && panelHidden.current) {
-            panelHidden.current = false;
-
-            Animated.timing(panelTranslateY, {
+          panelHidden.current = false;
+          Animated.timing(panelTranslateY, {
             toValue: 0,
             duration: 240,
             useNativeDriver: true,
-            }).start();
+          }).start();
         }
+      }
 
-        lastScrollY.current = currentY;
+      // --- PROGRESS TRACKING ---
+      const estimatedSection = Math.floor(currentY / 300) + 1;
+
+      if (estimatedSection !== lastSavedSection.current) {
+        lastSavedSection.current = estimatedSection;
+        saveProgress(estimatedSection);
+      }
+
+      lastScrollY.current = currentY;
     };
+
 
     const resolvedFontFamily = (() => {
         switch (fontFamily) {
@@ -145,6 +168,36 @@ export default function ChapterSectionsScreen() {
             return "Poppins_400Regular";
         }
     })();
+
+    const saveProgress = async (sectionNumber = 1) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !chapter) return;
+
+      await supabase
+        .from("user_reading_progress")
+        .upsert(
+          {
+            user_id: user.id,
+            codal_id: chapter.subtopics?.codal_id ?? null,
+            chapter_id: chapter.id,
+            subtopic_id: chapter.subtopic_id,
+            section_number: sectionNumber,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" } // important
+        );
+    };
+
+    useEffect(() => {
+      if (!loading && chapter) {
+        saveProgress(1);
+      }
+    }, [loading, chapter]);
+
+
 
 
 
@@ -262,13 +315,20 @@ export default function ChapterSectionsScreen() {
           )}
 
           {/* FOOTER */}
-          <View style={styles.footer}>
-            <Text style={styles.footerLink}>
-              🌐 www.bluephoenixreview.com
-            </Text>
-            <Text style={styles.footerLink}>
-              📘 Blue Phoenix Illustrated Reviewers
-            </Text>
+          <View style={styles.links}>
+            <View style={styles.linkRow}>
+              <Feather name="globe" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                www.bluephoenix.com
+              </Text>
+            </View>
+
+            <View style={styles.linkRow}>
+              <Feather name="facebook" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                Blue Phoenix Illustrated Reviewers
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </Animated.View>
@@ -395,6 +455,23 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
     fontFamily: "Poppins_700Bold",
+    color: "#04183B",
+  },
+  links: {
+    marginVertical: 20,
+    alignItems: "center",
+  },
+
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+
+  linkText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
     color: "#04183B",
   },
 
