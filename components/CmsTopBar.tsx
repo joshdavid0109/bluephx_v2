@@ -37,18 +37,18 @@ export default function CmsTopBar({
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
 
-  // 1️⃣ Load codals
+  /* ---------------------------------- */
+  /* Data loading (UNCHANGED)           */
+  /* ---------------------------------- */
+
   useEffect(() => {
     supabase
       .from("codals")
       .select("codal_id, codal_title")
       .order("codal_title")
-      .then(({ data }) => {
-        setCodals(data ?? []);
-      });
+      .then(({ data }) => setCodals(data ?? []));
   }, []);
 
-  // 2️⃣ Load subtopics when codal changes
   useEffect(() => {
     if (!selectedCodal) {
       setSubtopics([]);
@@ -63,12 +63,9 @@ export default function CmsTopBar({
       .select("id, name")
       .eq("codal_id", selectedCodal)
       .order("name")
-      .then(({ data }) => {
-        setSubtopics(data ?? []);
-      });
+      .then(({ data }) => setSubtopics(data ?? []));
   }, [selectedCodal]);
 
-  // 3️⃣ Load chapters when subtopic changes
   useEffect(() => {
     if (!selectedSubtopic) {
       setChapters([]);
@@ -81,31 +78,50 @@ export default function CmsTopBar({
       .select("id, title")
       .eq("subtopic_id", selectedSubtopic)
       .order("chapter_order")
-      .then(({ data }) => {
-        setChapters(data ?? []);
-      });
+      .then(({ data }) => setChapters(data ?? []));
   }, [selectedSubtopic]);
+
+  /* ---------------------------------- */
+  /* Styles                             */
+  /* ---------------------------------- */
+
+  const selectStyle: React.CSSProperties = {
+    height: 38,
+    padding: "0 12px",
+    borderRadius: 8,
+    border: "1px solid #CBD5E1",
+    backgroundColor: "#FFFFFF",
+    fontSize: 14,
+    color: "#0F172A",
+    minWidth: 180,
+    outline: "none",
+  };
+
+  const disabledStyle: React.CSSProperties = {
+    backgroundColor: "#F1F5F9",
+    color: "#94A3B8",
+    cursor: "not-allowed",
+  };
 
   return (
     <div
       style={{
-        height: 56,
         backgroundColor: "#FFFFFF",
         borderBottom: "1px solid #E5E7EB",
         display: "flex",
         alignItems: "center",
         gap: 12,
-        padding: "0 16px",
+        padding: "12px 16px",     // 🔥 vertical padding
+        flexWrap: "wrap",         // already correct
+        rowGap: 10,               // 🔥 vertical spacing between wrapped rows
       }}
+
     >
       {/* CODAL */}
       <select
         value={selectedCodal ?? ""}
-        onChange={(e) =>
-          onCodalChange(
-            e.target.value || null
-          )
-        }
+        onChange={(e) => onCodalChange(e.target.value || null)}
+        style={selectStyle}
       >
         <option value="">Select codal</option>
         {codals.map((c) => (
@@ -119,11 +135,11 @@ export default function CmsTopBar({
       <select
         value={selectedSubtopic ?? ""}
         disabled={!selectedCodal}
-        onChange={(e) =>
-          onSubtopicChange(
-            e.target.value || null
-          )
-        }
+        onChange={(e) => onSubtopicChange(e.target.value || null)}
+        style={{
+          ...selectStyle,
+          ...( !selectedCodal ? disabledStyle : {} ),
+        }}
       >
         <option value="">Select subtopic</option>
         {subtopics.map((s) => (
@@ -137,11 +153,12 @@ export default function CmsTopBar({
       <select
         value={selectedChapter ?? ""}
         disabled={!selectedSubtopic}
-        onChange={(e) =>
-          onChapterChange(
-            e.target.value || null
-          )
-        }
+        onChange={(e) => onChapterChange(e.target.value || null)}
+        style={{
+          ...selectStyle,
+          ...( !selectedSubtopic ? disabledStyle : {} ),
+          minWidth: 240, // chapters tend to be longer
+        }}
       >
         <option value="">Select chapter</option>
         {chapters.map((c) => (

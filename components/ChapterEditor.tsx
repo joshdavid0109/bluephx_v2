@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import DocsToolbar from "./DocsToolBar";
 
+const MOBILE_WIDTH = 390;
+
+
 type Props = {
   html: string;
   onChange: (html: string) => void;
@@ -95,61 +98,68 @@ export default function ChapterEditor({
     }
   }, [html]);
 
- return (
+return (
   <div
     style={{
       height: "100%",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-      background: "#F1F5F9", // 🧠 app background
+      background: "#F1F5F9",
     }}
   >
-    {/* Toolbar */}
     <DocsToolbar editorRef={editorRef} />
 
-    {/* Scrollable viewport */}
     <div
       style={{
         flex: 1,
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
+        overflow: "auto",
         display: "flex",
         justifyContent: "center",
-        padding: "24px 16px", // 🧠 breathing room
+        padding: "24px",
       }}
     >
-      {/* Page / Phone canvas */}
+      {/* Scale wrapper */}
       <div
         style={{
-          width: "100%",
-          maxWidth: 720,
-          background: "#FFFFFF",
-          borderRadius: 12,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-          minHeight: "100%",
+          width: MOBILE_WIDTH,
+          transform: `scale(${Math.min(
+            window.innerWidth / (MOBILE_WIDTH + 600),
+            1
+          )})`,
+          transformOrigin: "top center",
         }}
       >
+        {/* Phone-like page */}
         <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={() => onChange(editorRef.current?.innerHTML || "")}
-          onPaste={handlePaste}
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
           style={{
-            padding: "clamp(20px, 4vw, 36px)",
-            outline: "none",
-            fontSize: "clamp(14px, 1.1vw, 15px)",
-            lineHeight: 1.7,
-            boxSizing: "border-box",
+            background: "#FFFFFF",
+            borderRadius: 16,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+            overflow: "hidden",
           }}
-        />
+        >
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={() => onChange(editorRef.current?.innerHTML || "")}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            style={{
+              padding: 20,
+              fontSize: 15,
+              lineHeight: 1.7,
+              outline: "none",
+            }}
+          />
+        </div>
       </div>
     </div>
   </div>
 );
+
 
 
 }

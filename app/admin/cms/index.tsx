@@ -214,8 +214,13 @@ async function uploadSectionImage(
       style={{
         height: "100vh",
         display: "grid",
-        gridTemplateColumns: "520px 1fr",
+       gridTemplateColumns:
+        window.innerWidth < 1100
+          ? "1fr"
+          : "minmax(520px, 1.3fr) auto",
+      columnGap: 24,
         background: "#F1F5F9",
+        paddingBottom: 80,
       }}
     >
       {/* ================================== */}
@@ -227,8 +232,11 @@ async function uploadSectionImage(
           borderRight: "1px solid #E5E7EB",
           display: "flex",
           flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden", // 🔥 IMPORTANT
         }}
       >
+
         {/* Top CMS selector */}
         <div style={{ padding: 16, borderBottom: "1px solid #E5E7EB" }}>
           <CmsTopBar
@@ -247,41 +255,54 @@ async function uploadSectionImage(
             Select a chapter to start editing
           </div>
         ) : (
-        <ChapterEditor
-          html={docHtml}
-          onChange={(html) => {
-            setDocHtml(html);
-            saveChapter(html);
+       <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
           }}
-          onImageUpload={uploadSectionImage}
-        />
+        >
+          <ChapterEditor
+            html={docHtml}
+            onChange={(html) => {
+              setDocHtml(html);
+              saveChapter(html);
+            }}
+            onImageUpload={uploadSectionImage}
+          />
+        </div>
+
+
 
         )}
 
         <div
-  style={{
-    display: "flex",
-    justifyContent: "flex-end",
-    padding: "12px 16px",
-    borderTop: "1px solid #E5E7EB",
-    background: "#FFFFFF",
-  }}
->
-  <button
-    onClick={saveChapterNow}
-    disabled={isSaving}
-    style={{
-      padding: "10px 18px",
-      background: isSaving ? "#94A3B8" : "#2563EB",
-      color: "#FFFFFF",
-      borderRadius: 8,
-      fontWeight: 600,
-      cursor: isSaving ? "not-allowed" : "pointer",
-    }}
-  >
-    {isSaving ? "Saving…" : "Save"}
-  </button>
-</div>
+          style={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 20,
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "12px 16px",
+            borderTop: "1px solid #E5E7EB",
+            background: "#FFFFFF",
+          }}
+        >
+        <button
+          onClick={saveChapterNow}
+          disabled={isSaving}
+          style={{
+            padding: "10px 18px",
+            background: isSaving ? "#94A3B8" : "#2563EB",
+            color: "#FFFFFF",
+            borderRadius: 8,
+            fontWeight: 600,
+            cursor: isSaving ? "not-allowed" : "pointer",
+          }}
+        >
+          {isSaving ? "Saving…" : "Save"}
+        </button>
+      </div>
 
       </div>
 
