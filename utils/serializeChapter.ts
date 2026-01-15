@@ -20,8 +20,14 @@ export function serializeChapter(sections: ChapterSection[]) {
       }
 
       return `
-        <div data-section-id="${s.id}" data-type="text">
-          ${s.content || "<p><br /></p>"}
+        <div
+          data-section-id="${s.id}"
+          data-type="text"
+          contenteditable="false"
+        >
+          <div contenteditable="true">
+            ${s.content || "<p><br /></p>"}
+          </div>
         </div>
       `;
     })

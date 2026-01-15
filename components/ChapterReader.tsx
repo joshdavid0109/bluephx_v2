@@ -107,9 +107,24 @@ export function ChapterReader({
     s: { textDecorationLine: "line-through" },
 
     /* LISTS */
-    ul: { paddingLeft: 20, marginBottom: 10 },
-    ol: { paddingLeft: 20, marginBottom: 10 },
-    li: { marginBottom: 4 },
+    ul: {
+      paddingLeft: 22,
+      marginBottom: 10,
+    },
+    ol: {
+      paddingLeft: 22,
+      marginBottom: 10,
+    },
+    /* LETTERED LIST FIX */
+    "ol[type='a']": {
+      paddingLeft: 22,
+    },
+    li: {
+      marginBottom: 6,
+      paddingLeft: 2, // 🔥 fixes text shift
+      alignSelf: "flex-start", // 🔥 prevents marker stretching
+    },
+
 
     /* BLOCKQUOTE */
     blockquote: {
