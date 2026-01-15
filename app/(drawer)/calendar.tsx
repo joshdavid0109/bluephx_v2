@@ -1,3 +1,4 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -5,11 +6,15 @@ import { useMemo, useState } from "react";
 import {
   Image,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { scheduleReminderNotification } from "../../lib/reminderNotification";
+
 
 /* ---------- DATE HELPERS ---------- */
 
@@ -22,6 +27,17 @@ const getDaysInMonth = (year: number, month: number) =>
 const getFirstDayOfMonth = (year: number, month: number) =>
   new Date(year, month, 1).getDay();
 
+type CalendarEvent = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  title: string;
+  description?: string;
+  time?: string; // HH:MM
+  type: "EVENT" | "REMINDER";
+};
+
+
+
 /* ---------- SCREEN ---------- */
 
 export default function CalendarScreen() {
@@ -32,11 +48,20 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"LOG" | "STATS" | "ANALYSIS">("LOG");
 
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [newEventType, setNewEventType] = useState<"EVENT" | "REMINDER">("EVENT");
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+  const [eventTime, setEventTime] = useState("");
+
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
+  
 
   const days = useMemo(() => {
     const empty = Array(firstDay).fill(null);
@@ -60,15 +85,95 @@ export default function CalendarScreen() {
     month === today.getMonth() &&
     year === today.getFullYear();
 
+  const selectedDateString = selectedDate
+    ? `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        selectedDate
+      ).padStart(2, "0")}`
+    : null;
+  const eventsForSelectedDate = selectedDateString
+    ? events.filter((e) => e.date === selectedDateString)
+    : []; 
+
+
+   const addEvent = async () => {
+  if (!selectedDateString || !eventTitle.trim()) return;
+
+  const newEvent: CalendarEvent = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    date: selectedDateString,
+    title: eventTitle.trim(),
+    description: eventDescription || undefined,
+    time: eventTime || undefined,
+    type: newEventType,
+  };
+
+  setEvents((prev) => [...prev, newEvent]);
+
+  // 🔔 Schedule reminder notification
+  if (
+    newEvent.type === "REMINDER" &&
+    eventTime &&
+    selectedDate
+  ) {
+    const notifyAt = buildNotificationDate(
+      year,
+      month,
+      selectedDate,
+      eventTime
+    );
+
+    // Prevent scheduling past notifications
+    if (notifyAt > new Date()) {
+      await scheduleReminderNotification(
+        "Reminder",
+        newEvent.title,
+        notifyAt
+      );
+    }
+  }
+
+  // Reset modal
+  setEventTitle("");
+  setEventDescription("");
+  setEventTime("");
+  setNewEventType("EVENT");
+  setEventModalOpen(false);
+};
+
+
+  function buildNotificationDate(
+  year: number,
+  month: number,
+  day: number,
+  time: string
+) {
+  const [hours, minutes] = time.split(":").map(Number);
+
+  return new Date(
+    year,
+    month,
+    day,
+    hours,
+    minutes,
+    0
+  );
+}
+
+
+
   return (
     <SafeAreaView style={styles.root}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
-          <Feather name="menu" size={26} color="#63B3ED" />
-        </TouchableOpacity>
+      {/* LEFT */}
+      <TouchableOpacity onPress={open}>
+        <Feather name="menu" size={26} color="#63B3ED" />
+      </TouchableOpacity>
 
-        {/* RIGHT ICON */}
+      {/* RIGHT GROUP */}
+      <View style={styles.headerRight}>
+        <NotificationBell />
+
         <TouchableOpacity>
           <Image
             source={{
@@ -77,14 +182,19 @@ export default function CalendarScreen() {
             style={styles.headerLogo}
           />
         </TouchableOpacity>
-
       </View>
+    </View>
+
 
       <Text style={styles.greeting}>Hello,</Text>
       <Text style={styles.subGreeting}>Hope you are doing well!</Text>
 
       {/* PANEL */}
       <View style={styles.panel}>
+         <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 120 }}
+          >
         {/* BACK */}
         <TouchableOpacity
           style={styles.backRow}
@@ -111,8 +221,8 @@ export default function CalendarScreen() {
 
         {/* WEEKDAYS */}
         <View style={styles.weekRow}>
-          {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
-            <Text key={d} style={styles.weekDay}>
+          {["S", "M", "T", "W", "T", "F", "S"].map((d, idx) => (
+            <Text key={idx} style={styles.weekDay}>
               {d}
             </Text>
           ))}
@@ -120,10 +230,20 @@ export default function CalendarScreen() {
 
         {/* DAYS GRID */}
         <View style={styles.daysGrid}>
-          {days.map((day, idx) =>
-            day ? (
+          {days.map((day, idx) => {
+            if (!day) {
+              return <View key={`empty-${idx}`} style={styles.dayEmpty} />;
+            }
+
+            const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+              day
+            ).padStart(2, "0")}`;
+
+            const hasEvent = events.some((e) => e.date === dateKey);
+
+            return (
               <TouchableOpacity
-                key={idx}
+                key={dateKey}
                 style={[
                   styles.day,
                   isToday(day) && styles.today,
@@ -142,12 +262,62 @@ export default function CalendarScreen() {
                 >
                   {day}
                 </Text>
+
+                {/* 🔴 EVENT INDICATOR */}
+                {hasEvent && <View style={styles.eventDot} />}
               </TouchableOpacity>
-            ) : (
-              <View key={idx} style={styles.dayEmpty} />
-            )
-          )}
+            );
+          })}
         </View>
+        {/* EVENTS LIST */}
+        {selectedDateString && (
+          <View style={styles.eventsSection}>
+            <Text style={styles.eventsTitle}>
+              Events on {selectedDateString}
+            </Text>
+
+            {eventsForSelectedDate.length === 0 ? (
+              <Text style={styles.noEventsText}>
+                No events or reminders for this day.
+              </Text>
+            ) : (
+              eventsForSelectedDate.map((event) => (
+                <View key={event.id} style={styles.eventCard}>
+                  <View style={styles.eventHeader}>
+                    <Text
+                      style={[
+                        styles.eventType,
+                        event.type === "REMINDER"
+                          ? styles.reminder
+                          : styles.event,
+                      ]}
+                    >
+                      {event.type}
+                    </Text>
+
+                    {event.time && (
+                      <Text style={styles.eventTime}>
+                        ⏰ {event.time}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.eventTitleText}>
+                    {event.title}
+                  </Text>
+
+                  {event.description && (
+                    <Text style={styles.eventDescription}>
+                      {event.description}
+                    </Text>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+
 
         {/* TABS */}
         <View style={styles.tabs}>
@@ -169,14 +339,22 @@ export default function CalendarScreen() {
         </View>
 
         {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={styles.footerLink}>
-            🌐 www.bluephoenixreview.com
-          </Text>
-          <Text style={styles.footerLink}>
-            📘 Blue Phoenix Illustrated Reviewers
-          </Text>
-        </View>
+         <View style={styles.links}>
+            <View style={styles.linkRow}>
+              <Feather name="globe" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                www.bluephoenix.com
+              </Text>
+            </View>
+
+            <View style={styles.linkRow}>
+              <Feather name="facebook" size={16} color="#63B3ED" />
+              <Text style={styles.linkText}>
+                Blue Phoenix Illustrated Reviewers
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       </View>
 
       {/* FAB */}
@@ -184,28 +362,112 @@ export default function CalendarScreen() {
         style={styles.fab}
         onPress={() => {
           if (!selectedDate) return;
-          console.log("Add log for:", selectedDate);
+          setEventModalOpen(true);
         }}
       >
         <Feather name="plus" size={24} color="#FFF" />
       </TouchableOpacity>
+
+      {eventModalOpen && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>
+              Add to {selectedDateString}
+            </Text>
+
+            {/* TYPE */}
+            <View style={styles.modalTabs}>
+              {["EVENT", "REMINDER"].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setNewEventType(t as any)}
+                >
+                  <Text
+                    style={[
+                      styles.modalTab,
+                      newEventType === t && styles.modalTabActive,
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* TITLE */}
+            <Text style={styles.inputLabel}>Title *</Text>
+            <TextInput
+              value={eventTitle}
+              onChangeText={setEventTitle}
+              placeholder="e.g. Civil Law Exam"
+              style={styles.input}
+            />
+
+            {/* TIME */}
+            <Text style={styles.inputLabel}>Time (optional)</Text>
+            <TextInput
+              value={eventTime}
+              onChangeText={setEventTime}
+              placeholder="HH:MM"
+              style={styles.input}
+            />
+
+            {/* DESCRIPTION */}
+            <Text style={styles.inputLabel}>Notes (optional)</Text>
+            <TextInput
+              value={eventDescription}
+              onChangeText={setEventDescription}
+              placeholder="Additional details..."
+              multiline
+              style={[styles.input, { height: 80 }]}
+            />
+
+            {/* ACTIONS */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setEventModalOpen(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={addEvent}
+                style={[
+                  styles.modalConfirm,
+                  !eventTitle.trim() && { opacity: 0.5 },
+                ]}
+                disabled={!eventTitle.trim()}
+              >
+                <Text style={styles.modalConfirmText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#04183B" },
 
-  header: {
+    header: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 10,
+    alignItems: "center",
   },
+
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
   headerLogo: {
-    width: 28,
-    height: 28,
-    resizeMode: "contain",
+    width: 48,
+    height: 48,
   },
+
 
   greeting: {
     marginTop: 16,
@@ -288,6 +550,168 @@ const styles = StyleSheet.create({
     color: "#04183B",
     fontFamily: "Poppins_400Regular",
   },
+  eventDot: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: "#EF4444",
+  position: "absolute",
+  bottom: 6,
+},
+
+eventsSection: {
+  marginTop: 12,
+  marginBottom: 16,
+},
+
+eventsTitle: {
+  fontSize: 14,
+  fontFamily: "Poppins_700Bold",
+  color: "#04183B",
+  marginBottom: 8,
+},
+
+noEventsText: {
+  fontSize: 12,
+  fontFamily: "Poppins_400Regular",
+  color: "#64748B",
+  fontStyle: "italic",
+},
+
+eventCard: {
+  backgroundColor: "#F8FAFC",
+  borderRadius: 12,
+  padding: 12,
+  marginBottom: 8,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+},
+
+eventHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginBottom: 4,
+},
+
+eventType: {
+  fontSize: 11,
+  fontFamily: "Poppins_700Bold",
+},
+
+event: {
+  color: "#0369A1",
+},
+
+reminder: {
+  color: "#B91C1C",
+},
+
+eventTime: {
+  fontSize: 11,
+  fontFamily: "Poppins_400Regular",
+  color: "#475569",
+},
+
+eventTitleText: {
+  fontSize: 14,
+  fontFamily: "Poppins_600SemiBold",
+  color: "#04183B",
+},
+
+eventDescription: {
+  marginTop: 4,
+  fontSize: 12,
+  fontFamily: "Poppins_400Regular",
+  color: "#475569",
+},
+
+
+modalOverlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.4)",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+modal: {
+  width: "80%",
+  backgroundColor: "#FFF",
+  borderRadius: 16,
+  padding: 20,
+},
+
+modalTitle: {
+  fontSize: 16,
+  fontFamily: "Poppins_700Bold",
+  marginBottom: 12,
+  color: "#04183B",
+},
+
+modalTabs: {
+  flexDirection: "row",
+  justifyContent: "space-around",
+  marginBottom: 16,
+},
+
+modalTab: {
+  fontFamily: "Poppins_600SemiBold",
+  color: "#64748B",
+},
+
+modalTabActive: {
+  color: "#04183B",
+},
+
+modalActions: {
+  marginTop: 10,
+  flexDirection: "row",
+  justifyContent: "flex-end",
+  verticalAlign: "middle"
+
+},
+
+modalCancel: {
+  marginRight: 16,
+  color: "#64748B",
+  paddingHorizontal: 14,
+  paddingVertical: 6,
+  borderRadius: 8,
+},
+
+modalConfirm: {
+  backgroundColor: "#04183B",
+  paddingHorizontal: 14,
+  paddingVertical: 6,
+  borderRadius: 8,
+},
+
+modalConfirmText: {
+  color: "#FFF",
+  fontFamily: "Poppins_700Bold",
+},
+
+inputLabel: {
+  fontSize: 12,
+  fontFamily: "Poppins_600SemiBold",
+  color: "#04183B",
+  marginBottom: 4,
+  marginTop: 8,
+},
+
+input: {
+  borderWidth: 1,
+  borderColor: "#CBD5E1",
+  borderRadius: 10,
+  padding: 10,
+  fontFamily: "Poppins_400Regular",
+  fontSize: 13,
+},
+
+
 
   today: { backgroundColor: "#63B3ED" },
   selected: { backgroundColor: "#04183B" },
@@ -329,5 +753,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     elevation: 6,
+  },
+  links: {
+    marginVertical: 20,
+    alignItems: "center",
+  },
+
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+
+  linkText: {
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "#04183B",
   },
 });

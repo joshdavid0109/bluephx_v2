@@ -1,16 +1,17 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function NewPostScreen() {
@@ -21,6 +22,55 @@ export default function NewPostScreen() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const [communityQuery, setCommunityQuery] = useState("");
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [selectedCommunity, setSelectedCommunity] = useState<any | null>(null);
+  const [showCommunityDropdown, setShowCommunityDropdown] = useState(false);
+
+  const searchCommunities = async (text: string) => {
+    setCommunityQuery(text);
+
+    if (!text.trim()) {
+      setCommunities([]);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("communities")
+      .select("id, name, slug, description")
+      .ilike("name", `%${text}%`)
+      .limit(5);
+
+    setCommunities(data ?? []);
+    setShowCommunityDropdown(true);
+  };
+
+  const createCommunity = async () => {
+    if (!communityQuery.trim()) return;
+
+    const slug = communityQuery
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+
+    const { data, error } = await supabase
+      .from("communities")
+      .insert({
+        name: communityQuery.trim(),
+        slug,
+        description: "",
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setSelectedCommunity(data);
+      setCommunityQuery(data.name);
+      setShowCommunityDropdown(false);
+    }
+  };
+
 
   const submitPost = async () => {
     if (!title.trim() || !content.trim()) {
@@ -41,11 +91,19 @@ export default function NewPostScreen() {
       return;
     }
 
-    const { error } = await supabase.from("forum_posts").insert({
-      title: title.trim(),
-      content: content.trim(),
-      user_id: user.id,
-    });
+    if (!selectedCommunity) {
+    setErrorMsg("Please select or create a community.");
+    setLoading(false);
+    return;
+  }
+
+  const { error } = await supabase.from("forum_posts").insert({
+    title: title.trim(),
+    content: content.trim(),
+    user_id: user.id,
+    community_id: selectedCommunity.id,
+  });
+
 
     setLoading(false);
 
@@ -61,23 +119,72 @@ export default function NewPostScreen() {
     <SafeAreaView style={styles.root}>
       {/* HEADER (CONSISTENT WITH OTHERS) */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
+        {/* LEFT */}
+        <TouchableOpacity onPress={() => open()}>
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
-        <Image
-          source={{
-            uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-          }}
-          style={styles.logo}
-        />
+        {/* RIGHT GROUP */}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+
+          <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
+        </View>
       </View>
+
 
       {/* PANEL */}
       <View style={styles.panel}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
+
+        {/* COMMUNITY SELECT */}
+        <View style={{ marginBottom: 14 }}>
+          <TextInput
+            placeholder="Select or create a community"
+            value={communityQuery}
+            onChangeText={searchCommunities}
+            onFocus={() => setShowCommunityDropdown(true)}
+            style={styles.input}
+          />
+
+          {showCommunityDropdown && (
+            <View style={styles.dropdown}>
+              {communities.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setSelectedCommunity(c);
+                    setCommunityQuery(c.name);
+                    setShowCommunityDropdown(false);
+                  }}
+                >
+                  <Text style={styles.dropdownTitle}>{c.name}</Text>
+                  <Text style={styles.dropdownSub}>bp/{c.slug}</Text>
+                </TouchableOpacity>
+              ))}
+
+              {communities.length === 0 && communityQuery.trim() !== "" && (
+                <TouchableOpacity
+                  style={styles.createCommunity}
+                  onPress={createCommunity}
+                >
+                  <Text style={styles.createText}>
+                    ➕ Create “{communityQuery}”
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
 
         <Text style={styles.title}>Post a Question</Text>
 
@@ -128,6 +235,16 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     alignItems: "center",
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
+  headerLogo: {
+    width: 48,
+    height: 48,
+  },
 
   logo: {
     width: 40,
@@ -174,6 +291,46 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
   },
+
+  dropdown: {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#CBD5E1",
+  marginTop: -8,
+  marginBottom: 12,
+  overflow: "hidden",
+},
+
+dropdownItem: {
+  padding: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: "#E5E7EB",
+},
+
+dropdownTitle: {
+  fontSize: 14,
+  fontFamily: "Poppins_600SemiBold",
+  color: "#04183B",
+},
+
+dropdownSub: {
+  fontSize: 11,
+  fontFamily: "Poppins_400Regular",
+  color: "#64748B",
+},
+
+createCommunity: {
+  padding: 12,
+  alignItems: "center",
+},
+
+createText: {
+  fontSize: 13,
+  fontFamily: "Poppins_600SemiBold",
+  color: "#63B3ED",
+},
+
 
   textArea: {
     height: 140,

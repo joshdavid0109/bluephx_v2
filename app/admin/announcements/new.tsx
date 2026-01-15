@@ -1,3 +1,4 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
@@ -5,14 +6,14 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 /* ---------- SCREEN ---------- */
@@ -122,17 +123,24 @@ export default function NewAnnouncementScreen() {
     <SafeAreaView style={styles.root}>
       {/* HEADER (EXACT COPY) */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
+        {/* LEFT */}
+        <TouchableOpacity onPress={() => open()}>
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
-        <Image
-          source={{
-            uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-          }}
-          style={styles.logo}
-        />
+        {/* RIGHT GROUP */}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+
+          <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
+        </View>
       </View>
+
 
       {/* PANEL */}
       <View style={styles.panel}>
@@ -207,6 +215,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     alignItems: "center",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
+  headerLogo: {
+    width: 48,
+    height: 48,
   },
 
   logo: {

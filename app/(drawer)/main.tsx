@@ -1,3 +1,4 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
 import {
@@ -32,6 +33,14 @@ type Announcement = {
   image_url: string | null;
 };
 
+type SearchResult = {
+  chapter_id: string;
+  chapter_title: string;
+  codal_title: string;
+  subtopic_name: string;
+  match_type: "title" | "content" | "subtopic";
+};
+
 
 export default function HomeScreen() {
   const [codals, setCodals] = useState<Codal[]>([]);
@@ -53,8 +62,11 @@ export default function HomeScreen() {
 
   const [isAdmin, setIsAdmin] = useState(false);
 
-
-
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [debounceTimer, setDebounceTimer] =
+    useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchCodals();
@@ -162,22 +174,151 @@ const fetchAnnouncements = async () => {
 };
 
 
+  const handleSearch = (text: string) => {
+    setQuery(text);
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    if (!text.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      runSearch(text.trim());
+    }, 300);
+
+    setDebounceTimer(timer);
+  };
+
+
+  const runSearch = async (text: string) => {
+  setSearching(true);
+
+  const { data: titleMatches } = await supabase
+    .from("chapters")
+    .select(`
+      id,
+      title,
+      subtopics (
+        name,
+        codals (
+          codal_title
+        )
+      )
+    `)
+    .ilike("title", `%${text}%`)
+    .limit(20);
+
+  const titleResults: SearchResult[] =
+    titleMatches?.map((c: any) => ({
+      chapter_id: c.id,
+      chapter_title: c.title,
+      subtopic_name: c.subtopics.name,
+      codal_title: c.subtopics.codals.codal_title,
+      match_type: "title",
+    })) ?? [];
+
+      const { data: contentMatches } = await supabase
+    .from("chapter_sections")
+    .select(`
+      chapter_id,
+      content,
+      chapters (
+        title,
+        subtopics (
+          name,
+          codals (
+            codal_title
+          )
+        )
+      )
+    `)
+    .ilike("content", `%${text}%`)
+    .limit(20);
+
+    const { data: subtopicMatches } = await supabase
+  .from("chapters")
+  .select(`
+    id,
+    title,
+    subtopics!inner (
+      name,
+      codals (
+        codal_title
+      )
+    )
+  `)
+  .ilike("subtopics.name", `%${text}%`)
+  .limit(20);
+
+  const subtopicResults: SearchResult[] =
+    subtopicMatches?.map((c: any) => ({
+      chapter_id: c.id,
+      chapter_title: c.title,
+      subtopic_name: c.subtopics.name,
+      codal_title: c.subtopics.codals.codal_title,
+      match_type: "subtopic",
+    })) ?? [];
+
+
+  const contentResults: SearchResult[] =
+    contentMatches?.map((s: any) => ({
+      chapter_id: s.chapter_id,
+      chapter_title: s.chapters.title,
+      subtopic_name: s.chapters.subtopics.name,
+      codal_title: s.chapters.subtopics.codals.codal_title,
+      match_type: "content",
+    })) ?? [];
+
+  const merged = [...titleResults];
+
+  [...contentResults, ...subtopicResults].forEach((item) => {
+    if (!merged.some((m) => m.chapter_id === item.chapter_id)) {
+      merged.push(item);
+    }
+  });
+
+  setResults(merged);
+  setSearching(false);
+
+
+  contentResults.forEach((item) => {
+    if (!merged.some((m) => m.chapter_id === item.chapter_id)) {
+      merged.push(item);
+    }
+  });
+
+  setResults(merged);
+  setSearching(false);
+};
+
+
   return (
     <SafeAreaView style={styles.root}>
       {/* HEADER */}
       <View style={styles.header}>
-      <TouchableOpacity onPress={() => open()}>
+        {/* LEFT */}
+        <TouchableOpacity onPress={() => open()}>
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
+        {/* RIGHT GROUP */}
+        <View style={styles.headerRight}>
+          <NotificationBell />
 
-        <Image
-          source={{
-            uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-          }}
-          style={styles.headerLogo}
-        />
+          <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
+        </View>
       </View>
+
 
       {/* USER INFO */}
       <View style={styles.userRow}>
@@ -302,12 +443,61 @@ const fetchAnnouncements = async () => {
             <Feather name="search" size={16} color="#64748B" />
             <TextInput
               placeholder="Find"
+              value={query}
+              onChangeText={handleSearch}
               style={styles.searchInput}
             />
+         </View>
+
+         {query.length > 0 && (
+          <View>
+            {searching ? (
+              <ActivityIndicator size="small" color="#04183B" />
+            ) : results.length === 0 ? (
+              <Text style={{ textAlign: "center", color: "#64748B" }}>
+                No results found
+              </Text>
+            ) : (
+              results.map((r) => (
+                <TouchableOpacity
+                  key={r.chapter_id}
+                  style={styles.articleCard}
+                  onPress={() => {
+                    setQuery("");
+                    setResults([]);
+                    router.push(`/chapter/${r.chapter_id}`);
+                  }}
+                >
+                  <Text style={styles.articleTitle}>
+                    {r.chapter_title}
+                  </Text>
+
+                  <Text style={styles.articleSub}>
+                    {r.codal_title} › {r.subtopic_name}
+                  </Text>
+
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {r.match_type === "title"
+                        ? "Title Match"
+                        : r.match_type === "subtopic"
+                        ? "Subtopic Match"
+                        : "Content Match"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
+        )}
+
+
+
 
           {/* GRID */}
-          {loading ? (
+          {query.length === 0 && 
+
+          (loading ? (
             <ActivityIndicator size="small" color="#04183B" />
           ) : (
             <View style={styles.grid}>
@@ -339,7 +529,8 @@ const fetchAnnouncements = async () => {
                 );
               })}
             </View>
-          )}
+          )
+        )}
 
           {/* LINKS */}
           <View style={styles.links}>
@@ -377,6 +568,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     alignItems: "center",
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
 
   headerLogo: {
     width: 48,

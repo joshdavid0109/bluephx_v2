@@ -1,17 +1,18 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 /* ---------- TYPES ---------- */
@@ -20,7 +21,12 @@ type Post = {
   title: string;
   content: string;
   user_id: string;
+  communities?: {
+    slug: string;
+    name: string;
+  } | null;
 };
+
 
 type Reply = {
   id: string;
@@ -59,7 +65,15 @@ export default function PostDetailScreen() {
   const fetchPost = async () => {
     const { data, error } = await supabase
       .from("forum_posts")
-      .select("title, content, user_id")
+      .select(`
+        title,
+        content,
+        user_id,
+        communities (
+          slug,
+          name
+        )
+      `)
       .eq("id", postId)
       .single();
 
@@ -68,6 +82,7 @@ export default function PostDetailScreen() {
       await fetchUsers([data.user_id]);
     }
   };
+
 
   /* ---------- FETCH REPLIES ---------- */
   const fetchReplies = async () => {
@@ -141,18 +156,24 @@ export default function PostDetailScreen() {
   return (
     <SafeAreaView style={styles.root}>
       {/* HEADER (CONSISTENT WITH OTHERS) */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
-          <Feather name="menu" size={26} color="#63B3ED" />
-        </TouchableOpacity>
+     <View style={styles.header}>
+      {/* LEFT */}
+      <TouchableOpacity onPress={() => open()}>
+        <Feather name="menu" size={26} color="#63B3ED" />
+      </TouchableOpacity>
+
+      {/* RIGHT GROUP */}
+      <View style={styles.headerRight}>
+        <NotificationBell />
 
         <Image
           source={{
             uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
           }}
-          style={styles.logo}
+          style={styles.headerLogo}
         />
       </View>
+    </View>
 
       {/* CONTENT */}
       <ScrollView style={styles.content}
@@ -160,6 +181,14 @@ export default function PostDetailScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
+
+        {post?.communities && (
+          <View style={styles.communityRow}>
+            <Text style={styles.communityTag}>
+              r/{post.communities.slug}
+            </Text>
+          </View>
+        )}
 
         <Text style={styles.title}>{post?.title}</Text>
 
@@ -235,6 +264,16 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     alignItems: "center",
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
+  headerLogo: {
+    width: 48,
+    height: 48,
+  },
 
   logo: {
     width: 40,
@@ -257,6 +296,23 @@ const styles = StyleSheet.create({
     color: "#63B3ED",
     marginBottom: 12,
   },
+
+  communityRow: {
+    marginBottom: 6,
+  },
+
+  communityTag: {
+    alignSelf: "flex-start",
+    backgroundColor: "#E0F2FE",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+    fontSize: 12,
+    fontFamily: "Poppins_700Bold",
+    color: "#0369A1",
+    marginBottom: 6,
+  },
+
 
   title: {
     fontSize: 20,

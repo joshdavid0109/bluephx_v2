@@ -1,3 +1,4 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
@@ -86,17 +87,24 @@ export default function CodalDetailScreen() {
     <SafeAreaView style={styles.root}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
+        {/* LEFT */}
+        <TouchableOpacity onPress={() => open()}>
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
-        <Image
-          source={{
-            uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-          }}
-          style={styles.logo}
-        />
+        {/* RIGHT GROUP */}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+
+          <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
+        </View>
       </View>
+
 
       {/* TITLE */}
       <Text style={styles.pageTitle}>Illustrated Codals</Text>
@@ -174,6 +182,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 10,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
+  headerLogo: {
+    width: 48,
+    height: 48,
   },
 
   logo: {

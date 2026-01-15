@@ -1,3 +1,4 @@
+import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { Feather } from "@expo/vector-icons";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -10,17 +11,24 @@ export default function AboutScreen() {
     <SafeAreaView style={styles.root}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={open}>
+        {/* LEFT */}
+        <TouchableOpacity onPress={() => open()}>
           <Feather name="menu" size={26} color="#63B3ED" />
         </TouchableOpacity>
 
-        <Image
-          source={{
-            uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-          }}
-          style={styles.logo}
-        />
+        {/* RIGHT GROUP */}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+
+          <Image
+            source={{
+              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+            }}
+            style={styles.headerLogo}
+          />
+        </View>
       </View>
+
 
       <Text style={styles.pageTitle}>About Us</Text>
 
@@ -98,6 +106,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     alignItems: "center",
+  },
+
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+
+  headerLogo: {
+    width: 48,
+    height: 48,
   },
 
   logo: {

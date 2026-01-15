@@ -230,6 +230,15 @@ export default function WelcomeScreen() {
           <TouchableOpacity style={styles.button} onPress={onGetStarted}>
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
+
+          {/* Already a subscriber */}
+          <View style={styles.loginRow}>
+            <Text style={styles.loginText}>Already a subscriber? </Text>
+            <TouchableOpacity onPress={() => router.push("/(auth)")}>
+              <Text style={styles.loginLink}>Login</Text>
+            </TouchableOpacity>
+          </View>
+
         </Animated.View>
       )}
     </SafeAreaView>
@@ -361,6 +370,26 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_700Bold",
     color: "#04183B",
   },
+
+  loginRow: {
+  flexDirection: "row",
+  justifyContent: "center",
+  marginTop: 12,
+},
+
+loginText: {
+  fontFamily: "Poppins_400Regular",
+  fontSize: 13,
+  color: "#6B7280",
+},
+
+loginLink: {
+  fontFamily: "Poppins_700Bold",
+  fontSize: 13,
+  color: "#04183B",
+},
+
+
   pagerPage: {
   justifyContent: "center",
   alignItems: "center",
