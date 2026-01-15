@@ -21,6 +21,8 @@ type ChapterSection = {
   image_url: string | null;
 };
 
+
+
 /* ---------------------------------- */
 /* Debounce Helper                    */
 /* ---------------------------------- */
@@ -165,6 +167,44 @@ export default function CmsHome() {
   }
 };
 
+
+async function uploadSectionImage(
+  file: File,
+  sectionId: string
+): Promise<string> {
+  if (!selectedCodal || !selectedSubtopic || !selectedChapter) {
+    throw new Error("Missing codal / subtopic / chapter");
+  }
+
+  const ext = file.name.split(".").pop() || "jpg";
+  const fileName = `${Date.now()}.${ext}`;
+
+  const filePath = [
+    selectedCodal,
+    selectedSubtopic,
+    selectedChapter,
+    `section-${sectionId}`,
+    fileName,
+  ]
+    .map((p) => p.replace(/\s+/g, "_"))
+    .join("/");
+
+  const { error } = await supabase.storage
+    .from("chapter-images")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from("chapter-images")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
   /* ---------------------------------- */
   /* Layout                             */
   /* ---------------------------------- */
@@ -207,13 +247,15 @@ export default function CmsHome() {
             Select a chapter to start editing
           </div>
         ) : (
-          <ChapterEditor
-            html={docHtml}
-            onChange={(html) => {
-              setDocHtml(html);
-              saveChapter(html);
-            }}
-          />
+        <ChapterEditor
+          html={docHtml}
+          onChange={(html) => {
+            setDocHtml(html);
+            saveChapter(html);
+          }}
+          onImageUpload={uploadSectionImage}
+        />
+
         )}
 
         <div
@@ -243,16 +285,30 @@ export default function CmsHome() {
 
       </div>
 
-      {/* ================================== */}
       {/* RIGHT — MOBILE PREVIEW             */}
       {/* ================================== */}
       <div
         style={{
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
+          alignItems: "center",
           paddingTop: 24,
+          gap: 12,
         }}
       >
+        {/* Preview label (optional, CMS-only) */}
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#64748B",
+            letterSpacing: 0.5,
+          }}
+        >
+          Mobile Preview
+        </div>
+
+        {/* Phone frame */}
         <div
           style={{
             width: 390,
@@ -261,12 +317,31 @@ export default function CmsHome() {
             border: "12px solid #111",
             overflow: "hidden",
             background: "#FFFFFF",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <ChapterReader
-            chapterTitle={chapterTitle ?? undefined}
-            sections={sections}
-          />
+          {/* ===== Mobile Header (PREVIEW ONLY) ===== */}
+          <div
+            style={{
+              padding: "14px 16px",
+              borderBottom: "1px solid #E5E7EB",
+              fontSize: 16,
+              fontWeight: 600,
+              textAlign: "center",
+              background: "#FFFFFF",
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+            }}
+          >
+            {chapterTitle || "Untitled Chapter"}
+          </div>
+
+          {/* ===== Mobile Content ===== */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <ChapterReader sections={sections} />
+          </div>
         </div>
       </div>
     </div>
