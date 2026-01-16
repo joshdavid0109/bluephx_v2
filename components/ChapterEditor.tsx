@@ -17,27 +17,63 @@ export default function ChapterEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const hydratedRef = useRef(false);
   const lastHtmlRef = useRef<string | null>(null);
-
   const saveTimeoutRef = useRef<number | null>(null);
 
-const scheduleSave = () => {
-  if (!editorRef.current) return;
+  const scheduleSave = () => {
+    if (!editorRef.current) return;
 
-  if (saveTimeoutRef.current) {
-    window.clearTimeout(saveTimeoutRef.current);
-  }
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
 
-  saveTimeoutRef.current = window.setTimeout(() => {
-    const html = editorRef.current!.innerHTML;
-    lastHtmlRef.current = html;
-    onChange(html); // ✅ DB save happens HERE
-  }, 600); // feels like Google Docs
-};
+    saveTimeoutRef.current = window.setTimeout(() => {
+      const html = editorRef.current!.innerHTML;
+      lastHtmlRef.current = html;
+      onChange(html);
+    }, 600);
+  };
 
+  /* ---------------------------------- */
+  /* Font size controls                 */
+  /* ---------------------------------- */
 
+  const applyFontSize = (delta: number) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
 
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return;
 
+    const span = document.createElement("span");
 
+    let currentSize = 15;
+
+    const parentEl =
+      selection.anchorNode instanceof HTMLElement
+        ? selection.anchorNode
+        : selection.anchorNode?.parentElement;
+
+    if (parentEl) {
+      const computed = window.getComputedStyle(parentEl);
+      const size = parseInt(computed.fontSize, 10);
+      if (!isNaN(size)) currentSize = size;
+    }
+
+    const newSize = Math.max(10, Math.min(36, currentSize + delta));
+    span.style.fontSize = `${newSize}px`;
+
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+
+    range.selectNodeContents(span);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    scheduleSave();
+  };
+
+  const increaseFontSize = () => applyFontSize(2);
+  const decreaseFontSize = () => applyFontSize(-2);
 
   /* ---------------------------------- */
   /* Helpers                            */
@@ -75,7 +111,7 @@ const scheduleSave = () => {
     document.execCommand(
       "insertHTML",
       false,
-      `<img src="${publicUrl}" />`
+      `<img src="${publicUrl}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
     );
   };
 
@@ -127,7 +163,6 @@ const scheduleSave = () => {
     lastHtmlRef.current = editorRef.current.innerHTML;
     onChange(lastHtmlRef.current);
 
-    // focus cursor
     const range = document.createRange();
     range.selectNodeContents(editable);
     range.collapse(true);
@@ -135,7 +170,6 @@ const scheduleSave = () => {
     sel?.removeAllRanges();
     sel?.addRange(range);
   };
-
 
   const removeSection = (sectionId: string) => {
     if (!editorRef.current) return;
@@ -156,7 +190,6 @@ const scheduleSave = () => {
     onChange(lastHtmlRef.current);
   };
 
-
   /* ---------------------------------- */
   /* Floating controls injection        */
   /* ---------------------------------- */
@@ -164,7 +197,6 @@ const scheduleSave = () => {
   const injectFloatingControls = () => {
     if (!editorRef.current) return;
 
-    // Remove old controls
     editorRef.current
       .querySelectorAll("[data-floating-controls]")
       .forEach((el) => el.remove());
@@ -246,15 +278,12 @@ const scheduleSave = () => {
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Only hydrate when coming from OUTSIDE the editor
     if (html !== lastHtmlRef.current) {
       editorRef.current.innerHTML = html;
       injectFloatingControls();
       lastHtmlRef.current = html;
     }
   }, [html]);
-
-
 
   /* ---------------------------------- */
   /* Render                             */
@@ -270,6 +299,19 @@ const scheduleSave = () => {
         background: "#F1F5F9",
       }}
     >
+      <style>
+        {`
+          /* Image styling for editor */
+          [data-section-id] img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            margin: 16px 0;
+            display: block;
+          }
+        `}
+      </style>
+
       <DocsToolbar editorRef={editorRef} />
 
       <div

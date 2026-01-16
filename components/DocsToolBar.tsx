@@ -10,6 +10,38 @@ export default function DocsToolbar({ editorRef }: Props) {
     document.execCommand(cmd, false, val);
   };
 
+  const changeFontSize = (delta: number) => {
+  focus();
+
+  const selection = document.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  if (range.collapsed) return;
+
+  // Detect current font size
+  let currentSize = 15;
+  const parent =
+    selection.anchorNode instanceof HTMLElement
+      ? selection.anchorNode
+      : selection.anchorNode?.parentElement;
+
+  if (parent) {
+    const computed = window.getComputedStyle(parent);
+    const size = parseInt(computed.fontSize, 10);
+    if (!isNaN(size)) currentSize = size;
+  }
+
+  const newSize = Math.max(10, Math.min(36, currentSize + delta));
+
+  document.execCommand(
+    "insertHTML",
+    false,
+    `<span style="font-size:${newSize}px;">${selection.toString()}</span>`
+  );
+};
+
+
   const setStyle = (style: string, value: string) => {
     focus();
     document.execCommand(
@@ -46,6 +78,22 @@ export default function DocsToolbar({ editorRef }: Props) {
       <button onMouseDown={preventBlur} onClick={() => exec("italic")}>I</button>
       <button onMouseDown={preventBlur} onClick={() => exec("underline")}>U</button>
       <button onMouseDown={preventBlur} onClick={() => exec("strikeThrough")}>S</button>
+
+      {/* Font size */}
+      <button
+        onMouseDown={preventBlur}
+        onClick={() => changeFontSize(-2)}
+      >
+        A−
+      </button>
+
+      <button
+        onMouseDown={preventBlur}
+        onClick={() => changeFontSize(2)}
+      >
+        A+
+      </button>
+
 
       {/* Alignment */}
       <button onMouseDown={preventBlur} onClick={() => exec("justifyLeft")}>⬅</button>

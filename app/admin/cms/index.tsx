@@ -149,7 +149,7 @@ export default function CmsHome() {
   /* Save pipeline (UPSERT)             */
   /* ---------------------------------- */
 
-  async function persistHtml(html: string) {
+async function persistHtml(html: string) {
   if (!selectedChapter) return;
 
   const wrapper = document.createElement("div");
@@ -159,12 +159,111 @@ export default function CmsHome() {
     wrapper.querySelectorAll("[data-section-id]")
   );
 
-  // 1️⃣ Extract current section IDs
-  const currentIds = blocks
-    .map((b) => b.getAttribute("data-section-id"))
-    .filter(Boolean) as string[];
+  // 1️⃣ Extract current section IDs that we're about to save
+  const currentIds: string[] = [];
+  
+  // 2️⃣ Build upsert payload
+  const payload = blocks
+    .flatMap((block, index) => {
+      const id = block.getAttribute("data-section-id");
+      const type = block.getAttribute("data-type");
 
-  // 2️⃣ Delete removed sections
+      if (!id || type !== "text") return [];
+
+      currentIds.push(id);
+
+      const editable = block.querySelector('[contenteditable="true"]');
+      if (!editable) return [];
+
+      const content = editable.innerHTML;
+      const sections: any[] = [];
+
+      // Parse the content for images
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = content;
+      
+      const images = Array.from(tempDiv.querySelectorAll("img"));
+      
+      if (images.length === 0) {
+        // No images, just save the text section
+        return [{
+          id,
+          chapter_id: selectedChapter,
+          section_number: index,
+          type: "text",
+          content: content,
+          image_url: null,
+        }];
+      }
+
+      // Split content by images
+      let textBeforeImage = "";
+      let currentNode = tempDiv.firstChild;
+      let sectionIndex = 0;
+
+      while (currentNode) {
+        if (currentNode.nodeName === "IMG") {
+          const img = currentNode as HTMLImageElement;
+          const imageUrl = img.src;
+
+          // Save any text before this image
+          if (textBeforeImage.trim()) {
+            const textId = sectionIndex === 0 ? id : `${id}-text-${sectionIndex}`;
+            currentIds.push(textId);
+            sections.push({
+              id: textId,
+              chapter_id: selectedChapter,
+              section_number: index + sectionIndex,
+              type: "text",
+              content: textBeforeImage,
+              image_url: null,
+            });
+            sectionIndex++;
+          }
+
+          // Save the image section
+          const imageId = `${id}-img-${sectionIndex}`;
+          currentIds.push(imageId);
+          sections.push({
+            id: imageId,
+            chapter_id: selectedChapter,
+            section_number: index + sectionIndex,
+            type: "image",
+            content: null,
+            image_url: imageUrl,
+          });
+          sectionIndex++;
+
+          textBeforeImage = "";
+        } else {
+          // Accumulate text content
+          const div = document.createElement("div");
+          div.appendChild(currentNode.cloneNode(true));
+          textBeforeImage += div.innerHTML;
+        }
+
+        currentNode = currentNode.nextSibling;
+      }
+
+      // Save any remaining text after last image
+      if (textBeforeImage.trim()) {
+        const textId = sectionIndex === 0 ? id : `${id}-text-${sectionIndex}`;
+        currentIds.push(textId);
+        sections.push({
+          id: textId,
+          chapter_id: selectedChapter,
+          section_number: index + sectionIndex,
+          type: "text",
+          content: textBeforeImage,
+          image_url: null,
+        });
+      }
+
+      return sections;
+    })
+    .filter(Boolean);
+
+  // 3️⃣ Delete removed sections
   if (currentIds.length > 0) {
     await supabase
       .from("chapter_sections")
@@ -173,31 +272,16 @@ export default function CmsHome() {
       .not("id", "in", `(${currentIds.join(",")})`);
   }
 
-  // 3️⃣ Build upsert payload
-  const payload = blocks
-    .map((block, index) => {
-      const id = block.getAttribute("data-section-id");
-      const type = block.getAttribute("data-type");
+  // 4️⃣ Re-number all sections sequentially
+  const numberedPayload = payload.map((section, idx) => ({
+    ...section,
+    section_number: idx,
+  }));
 
-      if (!id || type !== "text") return null;
-
-      const editable = block.querySelector('[contenteditable="true"]');
-      if (!editable) return null;
-
-      return {
-        id,
-        chapter_id: selectedChapter,
-        section_number: index,
-        type: "text",
-        content: editable.innerHTML,
-      };
-    })
-    .filter(Boolean);
-
-  // 4️⃣ Upsert remaining sections
+  // 5️⃣ Upsert all sections
   await supabase
     .from("chapter_sections")
-    .upsert(payload, { onConflict: "id" });
+    .upsert(numberedPayload, { onConflict: "id" });
 }
 
 
@@ -352,9 +436,9 @@ export default function CmsHome() {
         </div>
       </div>
 
-      {/* RIGHT — MOBILE PREVIEW */}
+      {/* /* RIGHT — MOBILE PREVIEW */ }
       <div style={{ paddingTop: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#64748B" }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#64748B", marginBottom: 12 }}>
           Mobile Preview
         </div>
 
@@ -367,20 +451,31 @@ export default function CmsHome() {
               border: "10px solid #0F172A",
               overflow: "hidden",
               background: "#FFFFFF",
-              marginTop: 12,
+              display: "flex",
+              flexDirection: "column",
             }}
           >
+            {/* Phone header - fixed */}
             <div
               style={{
                 padding: "14px 16px",
                 borderBottom: "1px solid #E5E7EB",
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               {chapterTitle || "Untitled Chapter"}
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* Scrollable content - like a real phone */}
+            <div 
+              style={{ 
+                flex: 1, 
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch", // smooth scrolling on iOS
+              }}
+            >
               <ChapterReader sections={previewSections} />
             </div>
           </div>
