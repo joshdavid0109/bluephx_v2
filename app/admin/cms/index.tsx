@@ -43,6 +43,7 @@ export default function CmsHome() {
   /* ---------------------------------- */
   /* Web only                           */
   /* ---------------------------------- */
+
   if (Platform.OS !== "web") {
     return <Redirect href="/" />;
   }
@@ -50,6 +51,7 @@ export default function CmsHome() {
   /* ---------------------------------- */
   /* Selection state                    */
   /* ---------------------------------- */
+
   const [selectedCodal, setSelectedCodal] = useState<string | null>(null);
   const [selectedSubtopic, setSelectedSubtopic] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function CmsHome() {
   /* ---------------------------------- */
   /* Chapter data                       */
   /* ---------------------------------- */
+
   const [chapterTitle, setChapterTitle] = useState<string | null>(null);
   const [sections, setSections] = useState<ChapterSection[]>([]);
   const [docHtml, setDocHtml] = useState("");
@@ -68,36 +71,22 @@ export default function CmsHome() {
   /* ---------------------------------- */
 
   async function ensureInitialSection(chapterId: string) {
-  const { data: existing } = await supabase
-    .from("chapter_sections")
-    .select("id")
-    .eq("chapter_id", chapterId)
-    .limit(1);
+    const { data: existing } = await supabase
+      .from("chapter_sections")
+      .select("id")
+      .eq("chapter_id", chapterId)
+      .limit(1);
 
-  if (existing && existing.length > 0) return;
+    if (existing && existing.length > 0) return;
 
-  const { data: inserted } = await supabase
-    .from("chapter_sections")
-    .insert({
+    await supabase.from("chapter_sections").insert({
+      id: crypto.randomUUID(),
       chapter_id: chapterId,
       section_number: 0,
       type: "text",
-      content: "", // temporary
-    })
-    .select("id")
-    .single();
-
-  if (!inserted) return;
-
-  // 🔥 IMPORTANT: bind section ID into HTML
-  await supabase
-    .from("chapter_sections")
-    .update({
-      content: `<div data-section-id="${inserted.id}" data-type="text"><p></p></div>`,
-    })
-    .eq("id", inserted.id);
-}
-
+      content: "<p><br /></p>",
+    });
+  }
 
   /* ---------------------------------- */
   /* Load chapter + sections            */
@@ -113,7 +102,6 @@ export default function CmsHome() {
         .eq("id", selectedChapter)
         .single();
 
-      // 🔥 CRITICAL FIX
       await ensureInitialSection(selectedChapter);
 
       const { data: secs } = await supabase
@@ -158,56 +146,75 @@ export default function CmsHome() {
     : sections;
 
   /* ---------------------------------- */
-  /* Auto-save logic                    */
+  /* Save pipeline (UPSERT)             */
   /* ---------------------------------- */
 
-  const saveChapter = debounce(async (html: string) => {
-    setSaveStatus("saving");
+  async function persistHtml(html: string) {
+  if (!selectedChapter) return;
 
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = html;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
 
-    const blocks = wrapper.querySelectorAll("[data-section-id]");
+  const blocks = Array.from(
+    wrapper.querySelectorAll("[data-section-id]")
+  );
 
-    for (const block of Array.from(blocks)) {
+  // 1️⃣ Extract current section IDs
+  const currentIds = blocks
+    .map((b) => b.getAttribute("data-section-id"))
+    .filter(Boolean) as string[];
+
+  // 2️⃣ Delete removed sections
+  if (currentIds.length > 0) {
+    await supabase
+      .from("chapter_sections")
+      .delete()
+      .eq("chapter_id", selectedChapter)
+      .not("id", "in", `(${currentIds.join(",")})`);
+  }
+
+  // 3️⃣ Build upsert payload
+  const payload = blocks
+    .map((block, index) => {
       const id = block.getAttribute("data-section-id");
       const type = block.getAttribute("data-type");
 
-      if (!id || type !== "text") continue;
+      if (!id || type !== "text") return null;
 
-      await supabase
-        .from("chapter_sections")
-        .update({ content: block.innerHTML })
-        .eq("id", id);
-    }
+      const editable = block.querySelector('[contenteditable="true"]');
+      if (!editable) return null;
 
+      return {
+        id,
+        chapter_id: selectedChapter,
+        section_number: index,
+        type: "text",
+        content: editable.innerHTML,
+      };
+    })
+    .filter(Boolean);
+
+  // 4️⃣ Upsert remaining sections
+  await supabase
+    .from("chapter_sections")
+    .upsert(payload, { onConflict: "id" });
+}
+
+
+  const saveChapter = debounce(async (html: string) => {
+    setSaveStatus("saving");
+    await persistHtml(html);
     setSaveStatus("saved");
   }, 1200);
 
   const saveChapterNow = async () => {
-    if (!docHtml || !selectedChapter) return;
+    if (!docHtml) return;
 
     setIsSaving(true);
     setSaveStatus("saving");
 
     try {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = docHtml;
-
-      const blocks = wrapper.querySelectorAll("[data-section-id]");
-
-      for (const block of Array.from(blocks)) {
-        const id = block.getAttribute("data-section-id");
-        const type = block.getAttribute("data-type");
-
-        if (!id || type !== "text") continue;
-
-        await supabase
-          .from("chapter_sections")
-          .update({ content: block.innerHTML })
-          .eq("id", id);
-      }
-
+      await persistHtml(docHtml);
       setSaveStatus("saved");
     } catch (err) {
       console.error(err);

@@ -3,7 +3,6 @@ import DocsToolbar from "./DocsToolBar";
 
 const MOBILE_WIDTH = 390;
 
-
 type Props = {
   html: string;
   onChange: (html: string) => void;
@@ -16,6 +15,29 @@ export default function ChapterEditor({
   onImageUpload,
 }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const hydratedRef = useRef(false);
+  const lastHtmlRef = useRef<string | null>(null);
+
+  const saveTimeoutRef = useRef<number | null>(null);
+
+const scheduleSave = () => {
+  if (!editorRef.current) return;
+
+  if (saveTimeoutRef.current) {
+    window.clearTimeout(saveTimeoutRef.current);
+  }
+
+  saveTimeoutRef.current = window.setTimeout(() => {
+    const html = editorRef.current!.innerHTML;
+    lastHtmlRef.current = html;
+    onChange(html); // ✅ DB save happens HERE
+  }, 600); // feels like Google Docs
+};
+
+
+
+
+
 
   /* ---------------------------------- */
   /* Helpers                            */
@@ -37,6 +59,10 @@ export default function ChapterEditor({
     return null;
   };
 
+  /* ---------------------------------- */
+  /* Image insertion                    */
+  /* ---------------------------------- */
+
   const insertImageFromFile = async (file: File) => {
     const sectionId = getCurrentSectionId();
     if (!sectionId) {
@@ -44,10 +70,8 @@ export default function ChapterEditor({
       return;
     }
 
-    // 🔴 UPLOAD FIRST
     const publicUrl = await onImageUpload(file, sectionId);
 
-    // ✅ INSERT ONLY AFTER UPLOAD
     document.execCommand(
       "insertHTML",
       false,
@@ -55,111 +79,242 @@ export default function ChapterEditor({
     );
   };
 
-  /* ---------------------------------- */
-  /* PASTE HANDLER (CRITICAL FIX)       */
-  /* ---------------------------------- */
-
-  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = async (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
-
     const imageItem = items.find((i) => i.type.startsWith("image"));
     if (!imageItem) return;
 
-    // 🔴 STOP browser from inserting blob image
     e.preventDefault();
-
     const file = imageItem.getAsFile();
-    if (file) {
-      await insertImageFromFile(file);
-    }
+    if (file) await insertImageFromFile(file);
   };
 
-  /* ---------------------------------- */
-  /* DROP HANDLER (CRITICAL FIX)        */
-  /* ---------------------------------- */
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent) => {
     const file = e.dataTransfer.files?.[0];
     if (!file || !file.type.startsWith("image")) return;
 
-    // 🔴 STOP browser auto insert
     e.preventDefault();
-
     await insertImageFromFile(file);
   };
 
   /* ---------------------------------- */
-  /* SYNC HTML → EDITOR                */
+  /* Section logic                      */
+  /* ---------------------------------- */
+
+  const insertNewSectionAfter = (afterId: string) => {
+    if (!editorRef.current) return;
+
+    const current = editorRef.current.querySelector(
+      `[data-section-id="${afterId}"]`
+    );
+    if (!current) return;
+
+    const newId = crypto.randomUUID();
+
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("data-section-id", newId);
+    wrapper.setAttribute("data-type", "text");
+
+    const editable = document.createElement("div");
+    editable.contentEditable = "true";
+    editable.innerHTML = "<p><br /></p>";
+
+    wrapper.appendChild(editable);
+    current.insertAdjacentElement("afterend", wrapper);
+
+    injectFloatingControls();
+
+    lastHtmlRef.current = editorRef.current.innerHTML;
+    onChange(lastHtmlRef.current);
+
+    // focus cursor
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  };
+
+
+  const removeSection = (sectionId: string) => {
+    if (!editorRef.current) return;
+
+    const section = editorRef.current.querySelector(
+      `[data-section-id="${sectionId}"]`
+    );
+    if (!section) return;
+
+    const all = editorRef.current.querySelectorAll("[data-section-id]");
+    if (all.length <= 1) return;
+
+    section.remove();
+
+    injectFloatingControls();
+
+    lastHtmlRef.current = editorRef.current.innerHTML;
+    onChange(lastHtmlRef.current);
+  };
+
+
+  /* ---------------------------------- */
+  /* Floating controls injection        */
+  /* ---------------------------------- */
+
+  const injectFloatingControls = () => {
+    if (!editorRef.current) return;
+
+    // Remove old controls
+    editorRef.current
+      .querySelectorAll("[data-floating-controls]")
+      .forEach((el) => el.remove());
+
+    const sections = editorRef.current.querySelectorAll<HTMLElement>(
+      "[data-section-id]"
+    );
+
+    sections.forEach((section) => {
+      const id = section.dataset.sectionId;
+      if (!id) return;
+
+      section.style.position = "relative";
+
+      const controls = document.createElement("div");
+      controls.setAttribute("data-floating-controls", "true");
+      controls.contentEditable = "false";
+
+      Object.assign(controls.style, {
+        position: "absolute",
+        left: "50%",
+        bottom: "-16px",
+        transform: "translateX(-50%)",
+        display: "flex",
+        gap: "8px",
+        opacity: "0",
+        transition: "opacity 0.15s ease",
+        zIndex: "10",
+        pointerEvents: "none",
+      });
+
+      const addBtn = document.createElement("button");
+      addBtn.textContent = "+";
+      Object.assign(addBtn.style, {
+        width: "28px",
+        height: "28px",
+        borderRadius: "50%",
+        border: "1px solid #CBD5E1",
+        background: "#FFFFFF",
+        cursor: "pointer",
+        fontSize: "18px",
+        fontWeight: "600",
+        pointerEvents: "auto",
+      });
+      addBtn.onclick = () => insertNewSectionAfter(id);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "X";
+      Object.assign(removeBtn.style, {
+        width: "28px",
+        height: "28px",
+        borderRadius: "50%",
+        border: "1px solid #CBD5E1",
+        background: "#FFFFFF",
+        cursor: "pointer",
+        fontSize: "14px",
+        pointerEvents: "auto",
+      });
+      removeBtn.onclick = () => removeSection(id);
+
+      controls.appendChild(addBtn);
+      controls.appendChild(removeBtn);
+      section.appendChild(controls);
+
+      section.addEventListener("mouseenter", () => {
+        controls.style.opacity = "1";
+      });
+
+      section.addEventListener("mouseleave", () => {
+        controls.style.opacity = "0";
+      });
+    });
+  };
+
+  /* ---------------------------------- */
+  /* Sync HTML                          */
   /* ---------------------------------- */
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== html) {
+    if (!editorRef.current) return;
+
+    // Only hydrate when coming from OUTSIDE the editor
+    if (html !== lastHtmlRef.current) {
       editorRef.current.innerHTML = html;
+      injectFloatingControls();
+      lastHtmlRef.current = html;
     }
   }, [html]);
 
-return (
-  <div
-    style={{
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      background: "#F1F5F9",
-    }}
-  >
-    <DocsToolbar editorRef={editorRef} />
 
+
+  /* ---------------------------------- */
+  /* Render                             */
+  /* ---------------------------------- */
+
+  return (
     <div
       style={{
-        flex: 1,
-        overflow: "auto",
+        height: "100%",
         display: "flex",
-        justifyContent: "center",
-        padding: "24px",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#F1F5F9",
       }}
     >
-      {/* Scale wrapper */}
+      <DocsToolbar editorRef={editorRef} />
+
       <div
         style={{
-          width: MOBILE_WIDTH,
-          transform: `scale(${Math.min(
-            window.innerWidth / (MOBILE_WIDTH + 600),
-            1
-          )})`,
-          transformOrigin: "top center",
+          flex: 1,
+          overflow: "auto",
+          display: "flex",
+          justifyContent: "center",
+          padding: "24px",
         }}
       >
-        {/* Phone-like page */}
         <div
           style={{
-            background: "#FFFFFF",
-            borderRadius: 16,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-            overflow: "hidden",
+            width: MOBILE_WIDTH,
+            transform: `scale(${Math.min(
+              window.innerWidth / (MOBILE_WIDTH + 600),
+              1
+            )})`,
+            transformOrigin: "top center",
           }}
         >
           <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={() => onChange(editorRef.current?.innerHTML || "")}
-            onPaste={handlePaste}
-            onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
             style={{
-              padding: 20,
-              fontSize: 15,
-              lineHeight: 1.7,
-              outline: "none",
+              background: "#FFFFFF",
+              borderRadius: 16,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+              overflow: "hidden",
             }}
-          />
+          >
+            <div
+              ref={editorRef}
+              onInput={scheduleSave}
+              onPaste={handlePaste}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              style={{
+                padding: 20,
+                fontSize: 15,
+                lineHeight: 1.7,
+                outline: "none",
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
-
-
-
+  );
 }
