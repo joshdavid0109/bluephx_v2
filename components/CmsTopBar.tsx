@@ -345,7 +345,7 @@ export default function CmsTopBar({
               onChange={(e) => setTitleInput(e.target.value)}
               placeholder={`Enter ${createType} title`}
               style={{
-                width: "100%",
+                width: "93%",
                 height: 44,
                 borderRadius: 12,
                 border: "1px solid #E5E7EB",
