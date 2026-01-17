@@ -92,22 +92,42 @@ export default function HomeScreen() {
   };
 
   const fetchLastSession = async () => {
+  try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user) return;
+    
+    if (!user) {
+      setLastSession(null);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("user_reading_progress")
-      .select("codal_id, chapter_id")
+      .select("codal_id, chapter_id, updated_at")
       .eq("user_id", user.id)
-      .single();
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    if (!error && data) {
-      setLastSession(data);
+    if (error) {
+      console.error("Error fetching last session:", error);
+      setLastSession(null);
+      return;
     }
-  };
+
+    if (data && data.length > 0) {
+      setLastSession({
+        codal_id: data[0].codal_id,
+        chapter_id: data[0].chapter_id,
+      });
+    } else {
+      setLastSession(null);
+    }
+  } catch (err) {
+    console.error("Exception in fetchLastSession:", err);
+    setLastSession(null);
+  }
+};
   const checkAdminStatus = async () => {
   const admin = await checkAdmin();
   setIsAdmin(admin);

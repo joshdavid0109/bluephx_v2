@@ -61,6 +61,47 @@ export default function ChapterSectionsScreen() {
     fetchChapterAndSections();
   }, []);
 
+  // ADD THIS: Update reading progress when chapter loads
+  useEffect(() => {
+    if (chapter?.id && chapter?.subtopics?.codal_id) {
+      updateReadingProgress(chapter.id, chapter.subtopics.codal_id);
+    }
+  }, [chapter?.id, chapter?.subtopics?.codal_id]);
+
+  // ADD THIS FUNCTION: Update reading progress
+  const updateReadingProgress = async (chapterId: string, codalId: string) => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_reading_progress")
+      .upsert(
+        {
+          user_id: user.id,
+          codal_id: codalId,
+          chapter_id: chapterId,
+          section_number: 1,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,chapter_id",
+        }
+      );
+
+    if (error) {
+      console.error("Error updating reading progress:", error);
+    } else {
+      console.log("✅ Reading progress updated successfully");
+    }
+  } catch (error) {
+    console.error("Exception updating reading progress:", error);
+  }
+};
+
   const fetchChapterAndSections = async () => {
     setLoading(true);
     try {
@@ -190,8 +231,6 @@ export default function ChapterSectionsScreen() {
             />
           )}
 
-      
-
            <View style={styles.links}>
             <View style={styles.linkRow}>
               <Feather name="globe" size={16} color="#63B3ED" />
@@ -213,6 +252,8 @@ export default function ChapterSectionsScreen() {
   );
 }
 
+/* ================= STYLES ================= */
+// ... rest of your styles remain the same
 /* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
