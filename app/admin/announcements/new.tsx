@@ -8,13 +8,14 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 /* ---------- SCREEN ---------- */
 
@@ -144,7 +145,7 @@ export default function NewAnnouncementScreen() {
 
       {/* PANEL */}
       <View style={styles.panel}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.push("/(drawer)/main")}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
 

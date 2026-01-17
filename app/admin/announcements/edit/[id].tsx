@@ -9,13 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 export default function EditAnnouncementScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -58,7 +59,7 @@ export default function EditAnnouncementScreen() {
     if (error || !data) {
       Alert.alert("Error", "Announcement not found.");
       console.log(error)
-      router.back();
+      router.push("/(drawer)/main");
       return;
     }
 
@@ -134,7 +135,7 @@ export default function EditAnnouncementScreen() {
     if (error) {
       setErrorMsg("Failed to update announcement.");
     } else {
-      router.back();
+      router.push("/(drawer)/main");
     }
   };
 
@@ -153,7 +154,7 @@ export default function EditAnnouncementScreen() {
               .from("announcements")
               .delete()
               .eq("id", id);
-            router.back();
+            router.push("/(drawer)/main");
           },
         },
       ]
@@ -193,7 +194,7 @@ export default function EditAnnouncementScreen() {
 
       {/* PANEL */}
       <View style={styles.panel}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.push("/(drawer)/main")}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
 

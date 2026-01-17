@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { scheduleReminderNotification } from "../../lib/reminderNotification";
 
 
@@ -162,28 +162,26 @@ export default function CalendarScreen() {
 
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root}  edges={["top"]}>
       {/* HEADER */}
-      <View style={styles.header}>
-      {/* LEFT */}
-      <TouchableOpacity onPress={open}>
-        <Feather name="menu" size={26} color="#63B3ED" />
-      </TouchableOpacity>
-
-      {/* RIGHT GROUP */}
-      <View style={styles.headerRight}>
-        <NotificationBell />
-
-        <TouchableOpacity>
-          <Image
-            source={{
-              uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
-            }}
-            style={styles.headerLogo}
-          />
-        </TouchableOpacity>
-      </View>
-    </View>
+           <View style={styles.header}>
+             {/* LEFT */}
+             <TouchableOpacity onPress={() => open()}>
+               <Feather name="menu" size={26} color="#63B3ED" />
+             </TouchableOpacity>
+     
+             {/* RIGHT GROUP */}
+             <View style={styles.headerRight}>
+               <NotificationBell />
+     
+               <Image
+                 source={{
+                   uri: "https://cbjgqanwvblylaubozmj.supabase.co/storage/v1/object/public/logo/bpx_logo.png",
+                 }}
+                 style={styles.headerLogo}
+               />
+             </View>
+           </View>
 
 
       <Text style={styles.greeting}>Hello,</Text>
@@ -449,14 +447,12 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#04183B" },
 
-    header: {
+     header: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 10,
     alignItems: "center",
   },
-
   headerRight: {
     flexDirection: "row",
     alignItems: "center",

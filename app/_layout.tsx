@@ -13,12 +13,26 @@ import {
 } from "@expo-google-fonts/poppins";
 import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-
+import { Platform } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
+
+/* ---------------- NOTIFICATIONS ---------------- */
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+/* ---------------- ROOT LAYOUT ---------------- */
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -30,26 +44,15 @@ export default function RootLayout() {
     Poppins_800ExtraBold,
   });
 
-
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
   }, [fontsLoaded]);
 
   useEffect(() => {
     requestNotificationPermission();
   }, []);
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true, // ✅ REQUIRED
-    shouldShowList: true,   // ✅ REQUIRED
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
-
 
   if (!fontsLoaded) return null;
 
@@ -57,7 +60,21 @@ Notifications.setNotificationHandler({
     <NotificationProvider>
       <LoadingProvider>
         <SideNavProvider>
-          <Slot />
+          {/* 🔥 GLOBAL STACK CONTROLS ALL TRANSITIONS */}
+          <Stack
+            screenOptions={{
+              headerShown: false,
+
+              // ✅ FIXED TRANSITION FOR ALL SCREENS
+              animation:
+                Platform.OS === "ios"
+                  ? "slide_from_right"
+                  : "fade",
+
+              animationDuration: 220,
+            }}
+          />
+
           <GlobalLoader />
         </SideNavProvider>
       </LoadingProvider>
