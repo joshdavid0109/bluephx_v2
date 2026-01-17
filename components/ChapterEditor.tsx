@@ -79,6 +79,58 @@ export default function ChapterEditor({
   /* Helpers                            */
   /* ---------------------------------- */
 
+
+  const attachImageResizeHandles = () => {
+  editorRef.current
+    ?.querySelectorAll(".img-wrapper")
+    .forEach((wrapper) => {
+      const img = wrapper.querySelector("img") as HTMLImageElement | null;
+      const handle = wrapper.querySelector(".img-resize-handle") as HTMLDivElement | null;
+
+      if (!img || !handle || handle.dataset.bound === "true") return;
+      handle.dataset.bound = "true";
+
+      let startX = 0;
+      let startY = 0;
+      let startWidth = 0;
+      let startHeight = 0;
+
+      const onMouseDown = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = img.offsetWidth;
+        startHeight = img.offsetHeight;
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+        document.body.style.userSelect = "none";
+      };
+
+      const onMouseMove = (e: MouseEvent) => {
+        const newWidth = Math.max(120, startWidth + (e.clientX - startX));
+        const newHeight = Math.max(80, startHeight + (e.clientY - startY));
+
+        img.style.width = `${newWidth}px`;
+        img.style.height = `${newHeight}px`;
+
+        img.dataset.width = `${newWidth}`;
+        img.dataset.height = `${newHeight}`;
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        document.body.style.userSelect = "auto";
+        scheduleSave();
+      };
+
+      handle.addEventListener("mousedown", onMouseDown);
+    });
+};
+
   const getCurrentSectionId = () => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
@@ -111,8 +163,41 @@ export default function ChapterEditor({
     document.execCommand(
       "insertHTML",
       false,
-      `<img src="${publicUrl}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
+      `
+      <div class="img-wrapper" style="position:relative;display:inline-block;margin:16px 0;">
+  <img
+    src="${publicUrl}"
+    data-width="320"
+    data-height="200"
+    style="width:320px;height:200px;border-radius:12px;display:block;"
+    draggable="false"
+  />
+  <div
+    class="img-resize-handle"
+    contenteditable="false"
+    style="
+      position:absolute;
+      width:14px;
+      height:14px;
+      right:-6px;
+      bottom:-6px;
+      background:#2563EB;
+      border-radius:50%;
+      cursor:nwse-resize;
+    "
+  ></div>
+</div>
+
+
+      `
     );
+
+
+    setTimeout(() => {
+      editorRef.current
+        ?.querySelectorAll("img")
+        .forEach((img) => makeImageResizable(img as HTMLImageElement));
+    });
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -132,6 +217,62 @@ export default function ChapterEditor({
     e.preventDefault();
     await insertImageFromFile(file);
   };
+
+  const makeImageResizable = (img: HTMLImageElement) => {
+  if (img.dataset.resizable === "true") return;
+  img.dataset.resizable = "true";
+
+  img.draggable = false; // 🔥 IMPORTANT
+
+  img.style.cursor = "nwse-resize";
+  img.style.maxWidth = "100%";
+
+  img.addEventListener("dragstart", (e) => {
+    e.preventDefault();
+  });
+
+
+  let startX = 0;
+  let startY = 0;
+  let startWidth = 0;
+  let startHeight = 0;
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // 🔥 THIS IS KEY
+
+      
+    startX = e.clientX;
+    startY = e.clientY;
+    startWidth = img.offsetWidth;
+    startHeight = img.offsetHeight;
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.userSelect = "none";
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    const newWidth = Math.max(120, startWidth + (e.clientX - startX));
+    const newHeight = Math.max(80, startHeight + (e.clientY - startY));
+
+    img.style.width = `${newWidth}px`;
+    img.style.height = `${newHeight}px`;
+
+    img.dataset.width = `${newWidth}`;
+    img.dataset.height = `${newHeight}`;
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    document.body.style.userSelect = "auto";
+    scheduleSave(); // 🔥 persist resize
+  };
+
+  img.addEventListener("mousedown", onMouseDown);
+};
+
 
   /* ---------------------------------- */
   /* Section logic                      */
@@ -281,9 +422,18 @@ export default function ChapterEditor({
     if (html !== lastHtmlRef.current) {
       editorRef.current.innerHTML = html;
       injectFloatingControls();
+      attachImageResizeHandles();
+
+
+      // 🔥 re-attach resize to existing images
+      editorRef.current
+        .querySelectorAll("img")
+        .forEach((img) => makeImageResizable(img as HTMLImageElement));
+
       lastHtmlRef.current = html;
     }
   }, [html]);
+
 
   /* ---------------------------------- */
   /* Render                             */

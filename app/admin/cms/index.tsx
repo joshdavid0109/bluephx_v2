@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 
 import ChapterEditor from "@/components/ChapterEditor";
@@ -35,11 +35,46 @@ function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
   };
 }
 
+type PreviewDevice = "phone" | "tablet" | "ipad";
+
+const PREVIEW_PRESETS: Record<
+  PreviewDevice,
+  { label: string; width: number; height: number; scale: number; radius: number }
+> = {
+  phone: {
+    label: "Phone",
+    width: 320,
+    height: 680,
+    scale: 0.85,
+    radius: 32,
+  },
+  ipad: {
+    label: "iPad",
+    width: 768,
+    height: 1024,
+    scale: 0.55,
+    radius: 18,
+  },
+  tablet: {
+    label: "Tablet",
+    width: 900,
+    height: 1100,
+    scale: 0.5,
+    radius: 14,
+  },
+};
+
+
 /* ---------------------------------- */
 /* Page                               */
 /* ---------------------------------- */
 
 export default function CmsHome() {
+
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("phone");
+  const [leftWidth, setLeftWidth] = useState(640);
+  const isDraggingRef = useRef(false);
+
   /* ---------------------------------- */
   /* Web only                           */
   /* ---------------------------------- */
@@ -129,6 +164,32 @@ export default function CmsHome() {
     }
   }, [sections]);
 
+  useEffect(() => {
+  function onMouseMove(e: MouseEvent) {
+    if (!isDraggingRef.current) return;
+
+    const min = 420;
+    const max = window.innerWidth - 360;
+
+    setLeftWidth(Math.min(Math.max(e.clientX, min), max));
+  }
+
+  function onMouseUp() {
+    isDraggingRef.current = false;
+    document.body.style.cursor = "default";
+    document.body.style.userSelect = "auto";
+  }
+
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+
+  return () => {
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  };
+}, []);
+
+
   /* ---------------------------------- */
   /* Preview sections                   */
   /* ---------------------------------- */
@@ -152,137 +213,58 @@ export default function CmsHome() {
 async function persistHtml(html: string) {
   if (!selectedChapter) return;
 
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = html;
+  const root = document.createElement("div");
+  root.innerHTML = html;
 
   const blocks = Array.from(
-    wrapper.querySelectorAll("[data-section-id]")
+    root.querySelectorAll<HTMLElement>("[data-section-id]")
   );
 
-  // 1️⃣ Extract current section IDs that we're about to save
   const currentIds: string[] = [];
-  
-  // 2️⃣ Build upsert payload
-  const payload = blocks
-    .flatMap((block, index) => {
-      const id = block.getAttribute("data-section-id");
-      const type = block.getAttribute("data-type");
+  const payload: any[] = [];
 
-      if (!id || type !== "text") return [];
+  blocks.forEach((block, index) => {
+    const id = block.getAttribute("data-section-id");
+    const type = block.getAttribute("data-type");
+    if (!id || type !== "text") return;
 
-      currentIds.push(id);
+    const editable = block.querySelector<HTMLElement>(
+      '[contenteditable="true"]'
+    );
+    if (!editable) return;
 
-      const editable = block.querySelector('[contenteditable="true"]');
-      if (!editable) return [];
+    currentIds.push(id);
 
-      const content = editable.innerHTML;
-      const sections: any[] = [];
+    payload.push({
+      id,
+      chapter_id: selectedChapter,
+      section_number: index,
+      type: "text",
+      content: editable.innerHTML, // ✅ inline <img> preserved
+      image_url: null,
+    });
+  });
 
-      // Parse the content for images
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = content;
-      
-      const images = Array.from(tempDiv.querySelectorAll("img"));
-      
-      if (images.length === 0) {
-        // No images, just save the text section
-        return [{
-          id,
-          chapter_id: selectedChapter,
-          section_number: index,
-          type: "text",
-          content: content,
-          image_url: null,
-        }];
-      }
-
-      // Split content by images
-      let textBeforeImage = "";
-      let currentNode = tempDiv.firstChild;
-      let sectionIndex = 0;
-
-      while (currentNode) {
-        if (currentNode.nodeName === "IMG") {
-          const img = currentNode as HTMLImageElement;
-          const imageUrl = img.src;
-
-          // Save any text before this image
-          if (textBeforeImage.trim()) {
-            const textId = sectionIndex === 0 ? id : `${id}-text-${sectionIndex}`;
-            currentIds.push(textId);
-            sections.push({
-              id: textId,
-              chapter_id: selectedChapter,
-              section_number: index + sectionIndex,
-              type: "text",
-              content: textBeforeImage,
-              image_url: null,
-            });
-            sectionIndex++;
-          }
-
-          // Save the image section
-          const imageId = `${id}-img-${sectionIndex}`;
-          currentIds.push(imageId);
-          sections.push({
-            id: imageId,
-            chapter_id: selectedChapter,
-            section_number: index + sectionIndex,
-            type: "image",
-            content: null,
-            image_url: imageUrl,
-          });
-          sectionIndex++;
-
-          textBeforeImage = "";
-        } else {
-          // Accumulate text content
-          const div = document.createElement("div");
-          div.appendChild(currentNode.cloneNode(true));
-          textBeforeImage += div.innerHTML;
-        }
-
-        currentNode = currentNode.nextSibling;
-      }
-
-      // Save any remaining text after last image
-      if (textBeforeImage.trim()) {
-        const textId = sectionIndex === 0 ? id : `${id}-text-${sectionIndex}`;
-        currentIds.push(textId);
-        sections.push({
-          id: textId,
-          chapter_id: selectedChapter,
-          section_number: index + sectionIndex,
-          type: "text",
-          content: textBeforeImage,
-          image_url: null,
-        });
-      }
-
-      return sections;
-    })
-    .filter(Boolean);
-
-  // 3️⃣ Delete removed sections
+  // delete removed sections safely
   if (currentIds.length > 0) {
     await supabase
       .from("chapter_sections")
       .delete()
       .eq("chapter_id", selectedChapter)
-      .not("id", "in", `(${currentIds.join(",")})`);
+      .not(
+        "id",
+        "in",
+        `(${currentIds.map((id) => `"${id}"`).join(",")})`
+      );
   }
 
-  // 4️⃣ Re-number all sections sequentially
-  const numberedPayload = payload.map((section, idx) => ({
-    ...section,
-    section_number: idx,
-  }));
-
-  // 5️⃣ Upsert all sections
   await supabase
     .from("chapter_sections")
-    .upsert(numberedPayload, { onConflict: "id" });
+    .upsert(payload, { onConflict: "id" });
 }
+
+
+
 
 
   const saveChapter = debounce(async (html: string) => {
@@ -355,13 +337,12 @@ async function persistHtml(html: string) {
       style={{
         height: "100vh",
         display: "grid",
-        gridTemplateColumns:
-          window.innerWidth < 1100 ? "1fr" : "minmax(520px, 1.3fr) auto",
-        columnGap: 24,
+        gridTemplateColumns: `${leftWidth}px 6px 1fr`,
         background: "#F1F5F9",
         paddingBottom: 80,
       }}
     >
+
       {/* LEFT — EDITOR */}
       <div
         style={{
@@ -436,51 +417,120 @@ async function persistHtml(html: string) {
         </div>
       </div>
 
-      {/* /* RIGHT — MOBILE PREVIEW */ }
-      <div style={{ paddingTop: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#64748B", marginBottom: 12 }}>
-          Mobile Preview
-        </div>
+{/* DRAGGABLE DIVIDER */}
+<div
+  onMouseDown={() => {
+    isDraggingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }}
+  style={{
+    width: 6,
+    cursor: "col-resize",
+    background: "#E5E7EB",
+    position: "relative",
+  }}
+>
+  {/* Visual handle */}
+  <div
+    style={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: 2,
+      height: 32,
+      borderRadius: 2,
+      background: "#94A3B8",
+    }}
+  />
+</div>
 
-        <div style={{ transform: "scale(0.85)", transformOrigin: "top center" }}>
+      {/* RIGHT — LIVE PREVIEW */}
+<div style={{ paddingTop: 24, textAlign: "center" }}>
+  {/* Header + selector */}
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "center",
+      gap: 8,
+      marginBottom: 12,
+    }}
+  >
+    {Object.entries(PREVIEW_PRESETS).map(([key, cfg]) => (
+      <button
+        key={key}
+        onClick={() => setPreviewDevice(key as PreviewDevice)}
+        style={{
+          padding: "6px 12px",
+          fontSize: 12,
+          fontWeight: 600,
+          borderRadius: 6,
+          border: "1px solid #E5E7EB",
+          background:
+            previewDevice === key ? "#2563EB" : "#FFFFFF",
+          color:
+            previewDevice === key ? "#FFFFFF" : "#334155",
+          cursor: "pointer",
+        }}
+      >
+        {cfg.label}
+      </button>
+    ))}
+  </div>
+
+  {/* Device frame */}
+  {(() => {
+    const cfg = PREVIEW_PRESETS[previewDevice];
+
+    return (
+      <div
+        style={{
+          transform: `scale(${cfg.scale})`,
+          transformOrigin: "top center",
+        }}
+      >
+        <div
+          style={{
+            width: cfg.width,
+            height: cfg.height,
+            borderRadius: cfg.radius,
+            border: "10px solid #0F172A",
+            overflow: "hidden",
+            background: "#FFFFFF",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Header */}
           <div
             style={{
-              width: 320,
-              height: 680,
-              borderRadius: 32,
-              border: "10px solid #0F172A",
-              overflow: "hidden",
-              background: "#FFFFFF",
-              display: "flex",
-              flexDirection: "column",
+              padding: "14px 16px",
+              borderBottom: "1px solid #E5E7EB",
+              fontWeight: 600,
+              flexShrink: 0,
             }}
           >
-            {/* Phone header - fixed */}
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid #E5E7EB",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {chapterTitle || "Untitled Chapter"}
-            </div>
+            {chapterTitle || "Untitled Chapter"}
+          </div>
 
-            {/* Scrollable content - like a real phone */}
-            <div 
-              style={{ 
-                flex: 1, 
-                overflowY: "auto",
-                overflowX: "hidden",
-                WebkitOverflowScrolling: "touch", // smooth scrolling on iOS
-              }}
-            >
-              <ChapterReader sections={previewSections} />
-            </div>
+          {/* Scrollable content */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              overflowX: "hidden",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <ChapterReader sections={previewSections} />
           </div>
         </div>
       </div>
+    );
+  })()}
+</div>
+
     </div>
   );
 }

@@ -1,10 +1,19 @@
 import { normalizeHtml } from "@/utils/normalizeHtml";
 import React from "react";
-import { Image, Platform, useWindowDimensions, View } from "react-native";
+import {
+  Image,
+  Platform,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import RenderHTML, {
   HTMLContentModel,
   HTMLElementModel,
 } from "react-native-render-html";
+
+/* ---------------------------------- */
+/* Types                              */
+/* ---------------------------------- */
 
 type ChapterSection = {
   id: string;
@@ -12,12 +21,18 @@ type ChapterSection = {
   content: string | null;
   type: "text" | "image";
   image_url: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
 };
 
 type Props = {
   sections: ChapterSection[];
   fontSize?: number;
 };
+
+/* ---------------------------------- */
+/* Component                          */
+/* ---------------------------------- */
 
 export function ChapterReader({
   sections,
@@ -26,6 +41,10 @@ export function ChapterReader({
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === "web";
 
+  /* ---------------------------------- */
+  /* Custom HTML models                 */
+  /* ---------------------------------- */
+
   const customHTMLElementModels = {
     bi: HTMLElementModel.fromCustomModel({
       tagName: "bi",
@@ -33,19 +52,41 @@ export function ChapterReader({
     }),
   };
 
+  /* ---------------------------------- */
+  /* Helpers                            */
+  /* ---------------------------------- */
+
+  const maxContentWidth = width - 32;
+
+  const resolveImageWidth = (w?: number | null) => {
+    if (!w || isNaN(w)) return maxContentWidth;
+    return Math.min(w, maxContentWidth);
+  };
+
+  const resolveImageHeight = (
+    w?: number | null,
+    h?: number | null
+  ) => {
+    if (!w || !h) return undefined;
+    return h;
+  };
+
+  /* ---------------------------------- */
+  /* Render                             */
+  /* ---------------------------------- */
+
   return (
     <View style={{ padding: 16 }}>
       {sections.map((section) => (
         <View key={section.id}>
+          {/* TEXT SECTION */}
           {section.type === "text" && section.content ? (
             <RenderHTML
-              contentWidth={width - 32}
+              contentWidth={maxContentWidth}
               source={{ html: normalizeHtml(section.content) }}
               customHTMLElementModels={customHTMLElementModels}
-
               enableCSSInlineProcessing={true}
               ignoredStyles={[]}
-              
               allowedStyles={[
                 "fontSize",
                 "textAlign",
@@ -55,42 +96,32 @@ export function ChapterReader({
                 "marginLeft",
                 "marginRight",
                 "maxWidth",
-                "borderRadius",
-                "margin",
                 "display",
+                "width",
                 "height",
               ]}
-
               enableExperimentalMarginCollapsing={true}
-
               systemFonts={[
                 "Poppins_400Regular",
                 "Poppins_400Regular_Italic",
                 "Poppins_700Bold",
                 "Poppins_700Bold_Italic",
               ]}
-
               baseStyle={{
                 fontSize,
                 color: "#0F172A",
                 fontFamily: "Poppins_400Regular",
                 textAlign: "justify",
               }}
-
               tagsStyles={{
-                /* IMAGES - Respect inline styles */
                 img: {
                   marginVertical: 16,
                   borderRadius: 12,
                 },
-                
-                /* PARAGRAPHS */
                 p: {
                   marginBottom: 8,
                   textAlign: "justify",
                 },
-
-                /* HEADINGS */
                 h2: {
                   fontSize: fontSize + 6,
                   fontFamily: "Poppins_700Bold",
@@ -103,8 +134,6 @@ export function ChapterReader({
                   marginTop: 14,
                   marginBottom: 8,
                 },
-
-                /* TEXT */
                 b: { fontFamily: "Poppins_700Bold" },
                 strong: { fontFamily: "Poppins_700Bold" },
                 i: { fontFamily: "Poppins_400Regular_Italic" },
@@ -112,8 +141,6 @@ export function ChapterReader({
                 bi: { fontFamily: "Poppins_700Bold_Italic" },
                 u: { textDecorationLine: "underline" },
                 s: { textDecorationLine: "line-through" },
-
-                /* LISTS */
                 ul: {
                   paddingLeft: 22,
                   marginBottom: 10,
@@ -122,24 +149,17 @@ export function ChapterReader({
                   paddingLeft: 22,
                   marginBottom: 10,
                 },
-                "ol[type='a']": {
-                  paddingLeft: 22,
-                },
                 li: {
                   marginBottom: 6,
                   paddingLeft: 2,
                   alignSelf: "flex-start",
                 },
-
-                /* BLOCKQUOTE */
                 blockquote: {
                   borderLeftWidth: 3,
                   borderLeftColor: "#CBD5E1",
                   paddingLeft: 12,
                   marginVertical: 12,
                 },
-
-                /* CODE */
                 code: {
                   fontFamily: "monospace",
                   backgroundColor: "#F1F5F9",
@@ -148,31 +168,34 @@ export function ChapterReader({
                   borderRadius: 4,
                 },
               }}
-
-              /* 🔥 CRITICAL: Custom renderer for images */
+              /* 🔥 Custom image renderer (HTML images) */
               renderers={{
                 img: ({ tnode }) => {
                   const src = tnode.attributes.src;
                   if (!src) return null;
+
+                  const w = Number(tnode.attributes["data-width"]);
+                  const h = Number(tnode.attributes["data-height"]);
 
                   return (
                     <View style={{ alignItems: "center", marginVertical: 16 }}>
                       <Image
                         source={{ uri: src }}
                         style={{
-                          width: width - 64,
-                          maxWidth: "100%",
-                          height: 200,
+                          width: resolveImageWidth(w),
+                          height: resolveImageHeight(w, h),
+                          aspectRatio:
+                            w && h ? w / h : undefined,
                           borderRadius: 12,
                           backgroundColor: "#F1F5F9",
                         }}
-                        resizeMode="cover"
-                        onError={(error) => {
-                          console.log("❌ Image load error:", src, error.nativeEvent.error);
-                        }}
-                        onLoad={() => {
-                          console.log("✅ Image loaded successfully:", src);
-                        }}
+                        resizeMode="contain"
+                        onError={(e) =>
+                          console.log("❌ Image load error:", src, e.nativeEvent.error)
+                        }
+                        onLoad={() =>
+                          console.log("✅ Image loaded:", src)
+                        }
                       />
                     </View>
                   );
@@ -181,25 +204,35 @@ export function ChapterReader({
             />
           ) : null}
 
-          {/* STANDALONE IMAGE SECTION (for backward compatibility) */}
+          {/* STANDALONE IMAGE SECTION */}
           {section.type === "image" && section.image_url ? (
             <View style={{ alignItems: "center", marginVertical: 16 }}>
               <Image
                 source={{ uri: section.image_url }}
                 style={{
-                  width: width - 64,
-                  maxWidth: "100%",
-                  height: 200,
+                  width: resolveImageWidth(section.image_width),
+                  height: resolveImageHeight(
+                    section.image_width,
+                    section.image_height
+                  ),
+                  aspectRatio:
+                    section.image_width && section.image_height
+                      ? section.image_width / section.image_height
+                      : undefined,
                   borderRadius: 12,
                   backgroundColor: "#F1F5F9",
                 }}
-                resizeMode="cover"
-                onError={(error) => {
-                  console.log("❌ Image load error:", section.image_url, error.nativeEvent.error);
-                }}
-                onLoad={() => {
-                  console.log("✅ Image loaded successfully:", section.image_url);
-                }}
+                resizeMode="contain"
+                onError={(e) =>
+                  console.log(
+                    "❌ Image load error:",
+                    section.image_url,
+                    e.nativeEvent.error
+                  )
+                }
+                onLoad={() =>
+                  console.log("✅ Image loaded:", section.image_url)
+                }
               />
             </View>
           ) : null}
