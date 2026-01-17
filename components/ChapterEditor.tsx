@@ -9,6 +9,8 @@ type Props = {
   onImageUpload: (file: File, sectionId: string) => Promise<string>;
 };
 
+
+
 export default function ChapterEditor({
   html,
   onChange,
@@ -33,6 +35,7 @@ export default function ChapterEditor({
     }, 600);
   };
 
+  
   /* ---------------------------------- */
   /* Font size controls                 */
   /* ---------------------------------- */
@@ -303,6 +306,8 @@ export default function ChapterEditor({
 
     lastHtmlRef.current = editorRef.current.innerHTML;
     onChange(lastHtmlRef.current);
+    scheduleSave(); // 🔥 REQUIRED
+
 
     const range = document.createRange();
     range.selectNodeContents(editable);
@@ -329,6 +334,7 @@ export default function ChapterEditor({
 
     lastHtmlRef.current = editorRef.current.innerHTML;
     onChange(lastHtmlRef.current);
+    scheduleSave();
   };
 
   /* ---------------------------------- */

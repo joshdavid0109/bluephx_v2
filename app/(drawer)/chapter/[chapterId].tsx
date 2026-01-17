@@ -136,21 +136,23 @@ export default function ChapterSectionsScreen() {
   };
 
   const onScroll = (event: any) => {
-    const currentY = event.nativeEvent.contentOffset.y;
-    const diff = currentY - lastScrollY.current;
+  const currentY = event.nativeEvent.contentOffset.y;
+  const diff = currentY - lastScrollY.current;
 
-    if (Math.abs(diff) > SCROLL_THRESHOLD) {
-      Animated.timing(panelTranslateY, {
-        toValue: diff > 0 ? PANEL_COLLAPSED_Y : 0,
-        duration: 240,
-        useNativeDriver: true,
-      }).start();
+  if (Math.abs(diff) > SCROLL_THRESHOLD) {
+    Animated.timing(panelTranslateY, {
+      // 🔥 FIX: reverse the logic
+      toValue: diff < 0 ? PANEL_COLLAPSED_Y : 0,
+      duration: 240,
+      useNativeDriver: true,
+    }).start();
 
-      panelHidden.current = diff > 0;
-    }
+    panelHidden.current = diff < 0;
+  }
 
-    lastScrollY.current = currentY;
-  };
+  lastScrollY.current = currentY;
+};
+
 
   return (
     <SafeAreaView style={styles.root}>
