@@ -155,7 +155,7 @@ export default function SubtopicScreen() {
                 }
               >
                 <Text style={styles.chapterText}>
-                  {chapter.chapter_order}. {chapter.title}
+                  {chapter.chapter_order} {chapter.title}
                 </Text>
               </TouchableOpacity>
             ))

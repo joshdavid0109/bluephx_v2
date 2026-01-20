@@ -99,17 +99,34 @@ export function normalizeHtml(html: string) {
   html = html.replace(/<p[^>]*>\s*<\/p>/gi, "");
   html = html.replace(/<span[^>]*>\s*<\/span>/gi, "");
 
-  /* 8️⃣ Fix image sizing - constrain all images */
-  html = html.replace(
-    /<img([^>]*)>/gi,
-    (match, attrs) => {
-      // Remove existing style attribute if present
-      let cleanAttrs = attrs.replace(/\s*style="[^"]*"/gi, '');
-      
-      // Add constrained styling
-      return `<img${cleanAttrs} style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin: 16px auto; display: block;">`;
-    }
-  );
+/* 8️⃣ Fix image sizing – FORCE white background, no gray bleed */
+html = html.replace(
+  /<img([^>]*)>/gi,
+  (match, attrs) => {
+    let cleanAttrs = attrs.replace(/\s*style="[^"]*"/gi, '');
+
+    return `
+      <div style="
+        background-color: #ffffff;
+        border-radius: 12px;
+        margin: 16px auto;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+      ">
+        <img${cleanAttrs} style="
+          width: 100%;
+          height: 200px;
+          object-fit: contain;
+          display: block;
+          background-color: #ffffff;
+        ">
+      </div>
+    `;
+  }
+);
+
+
 
   return html;
 }

@@ -1,4 +1,4 @@
-import { ChapterReader } from "@/components/ChapterReader";
+  import { ChapterReader } from "@/components/ChapterReader";
 import NotificationBell from "@/components/NotificationBell";
 import { useSideNav } from "@/context/SideNavContext";
 import { supabase } from "@/lib/supabase";
@@ -192,15 +192,6 @@ export default function ChapterSectionsScreen() {
             <Text style={styles.controlBtn}>A+</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() =>
-              setTextAlign((a) => (a === "left" ? "justify" : "left"))
-            }
-          >
-            <Text style={styles.controlBtn}>
-              {textAlign === "left" ? "Justify" : "Left"}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* TITLE */}
@@ -223,6 +214,7 @@ export default function ChapterSectionsScreen() {
           {loading ? (
             <ActivityIndicator size="small" color="#04183B" />
           ) : (
+          <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
             <ChapterReader
               chapterTitle={chapterTitle ?? undefined}
               sections={sections}
@@ -231,6 +223,7 @@ export default function ChapterSectionsScreen() {
               textAlign={textAlign}
               fontFamily={resolvedFontFamily}
             />
+          </View>
           )}
 
            <View style={styles.links}>

@@ -22,18 +22,19 @@ export default function ChapterEditor({
   const saveTimeoutRef = useRef<number | null>(null);
 
   const scheduleSave = () => {
-    if (!editorRef.current) return;
+  if (!editorRef.current) return;
 
-    if (saveTimeoutRef.current) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
+  if (saveTimeoutRef.current) {
+    window.clearTimeout(saveTimeoutRef.current);
+  }
 
-    saveTimeoutRef.current = window.setTimeout(() => {
-      const html = editorRef.current!.innerHTML;
-      lastHtmlRef.current = html;
-      onChange(html);
-    }, 600);
-  };
+  saveTimeoutRef.current = window.setTimeout(() => {
+    const html = editorRef.current!.innerHTML;
+    onChange(html); // ONLY notify parent
+  }, 600);
+};
+
+
 
   
   /* ---------------------------------- */
@@ -167,7 +168,17 @@ export default function ChapterEditor({
       "insertHTML",
       false,
       `
-      <div class="img-wrapper" style="position:relative;display:inline-block;margin:16px 0;">
+  <div
+    class="img-wrapper"
+    style="
+      position: relative;
+      display: inline-block;
+      margin: 16px 0;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+    "
+  >
   <img
     src="${publicUrl}"
     data-width="320"
@@ -304,9 +315,14 @@ export default function ChapterEditor({
 
     injectFloatingControls();
 
-    lastHtmlRef.current = editorRef.current.innerHTML;
-    onChange(lastHtmlRef.current);
-    scheduleSave(); // 🔥 REQUIRED
+    const html = editorRef.current!.innerHTML;
+
+    // 🔥 force parent to know a new section exists
+    onChange(html);
+
+    // DO NOT set lastHtmlRef here
+    // DO NOT wait for input
+
 
 
     const range = document.createRange();
@@ -332,9 +348,10 @@ export default function ChapterEditor({
 
     injectFloatingControls();
 
-    lastHtmlRef.current = editorRef.current.innerHTML;
-    onChange(lastHtmlRef.current);
-    scheduleSave();
+    const html = editorRef.current!.innerHTML;
+
+    // 🔥 force parent to know a new section exists
+    onChange(html);
   };
 
   /* ---------------------------------- */
@@ -430,15 +447,14 @@ export default function ChapterEditor({
       injectFloatingControls();
       attachImageResizeHandles();
 
-
-      // 🔥 re-attach resize to existing images
       editorRef.current
         .querySelectorAll("img")
         .forEach((img) => makeImageResizable(img as HTMLImageElement));
 
-      lastHtmlRef.current = html;
+      lastHtmlRef.current = html; // ✅ ONLY HERE
     }
   }, [html]);
+
 
 
   /* ---------------------------------- */
@@ -452,7 +468,7 @@ export default function ChapterEditor({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: "#F1F5F9",
+        background: "#ffffff",
       }}
     >
       <style>

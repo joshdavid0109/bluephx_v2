@@ -76,11 +76,18 @@ export function ChapterReader({
   /* ---------------------------------- */
 
   return (
-    <View style={{ padding: 16 }}>
+    <View style={{ flex: 1, padding: 16, backgroundColor: "#ffffff" }}>
       {sections.map((section) => (
         <View key={section.id}>
           {/* TEXT SECTION */}
           {section.type === "text" && section.content ? (
+            <View
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 16,
+                padding: 16,
+              }}
+            >
             <RenderHTML
               contentWidth={maxContentWidth}
               source={{ html: normalizeHtml(section.content) }}
@@ -112,10 +119,15 @@ export function ChapterReader({
                 color: "#0F172A",
                 fontFamily: "Poppins_400Regular",
                 textAlign: "justify",
+                backgroundColor: "#ffffff",
               }}
               tagsStyles={{
+                div: {
+                  backgroundColor: "#ffffff",
+                },
                 img: {
-                  marginVertical: 16,
+                  backgroundColor: "#ffffff",
+                  marginVertical: 8,
                   borderRadius: 12,
                 },
                 p: {
@@ -162,7 +174,7 @@ export function ChapterReader({
                 },
                 code: {
                   fontFamily: "monospace",
-                  backgroundColor: "#F1F5F9",
+                  backgroundColor: "#f0f0f0ff",
                   paddingHorizontal: 6,
                   paddingVertical: 3,
                   borderRadius: 4,
@@ -178,7 +190,7 @@ export function ChapterReader({
                   const h = Number(tnode.attributes["data-height"]);
 
                   return (
-                    <View style={{ alignItems: "center", marginVertical: 16 }}>
+                    <View style={{ alignItems: "center", marginVertical: 16, backgroundColor: "#ffffff"}}>
                       <Image
                         source={{ uri: src }}
                         style={{
@@ -187,7 +199,7 @@ export function ChapterReader({
                           aspectRatio:
                             w && h ? w / h : undefined,
                           borderRadius: 12,
-                          backgroundColor: "#F1F5F9",
+                          backgroundColor: "#ffffffff",
                         }}
                         resizeMode="contain"
                         onError={(e) =>
@@ -202,11 +214,12 @@ export function ChapterReader({
                 },
               }}
             />
+            </View>
           ) : null}
 
           {/* STANDALONE IMAGE SECTION */}
           {section.type === "image" && section.image_url ? (
-            <View style={{ alignItems: "center", marginVertical: 16 }}>
+            <View style={{ alignItems: "center", marginVertical: 16, backgroundColor: "#ffffff",}}>
               <Image
                 source={{ uri: section.image_url }}
                 style={{
@@ -220,7 +233,7 @@ export function ChapterReader({
                       ? section.image_width / section.image_height
                       : undefined,
                   borderRadius: 12,
-                  backgroundColor: "#F1F5F9",
+                  backgroundColor: "#ffffffff",
                 }}
                 resizeMode="contain"
                 onError={(e) =>

@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 
 import ChapterEditor from "@/components/ChapterEditor";
 import { ChapterReader } from "@/components/ChapterReader";
@@ -225,8 +225,7 @@ async function persistHtml(html: string) {
 
   blocks.forEach((block, index) => {
     const id = block.getAttribute("data-section-id");
-    const type = block.getAttribute("data-type");
-    if (!id || type !== "text") return;
+    if (!id) return;
 
     const editable = block.querySelector<HTMLElement>(
       '[contenteditable="true"]'
@@ -240,32 +239,24 @@ async function persistHtml(html: string) {
       chapter_id: selectedChapter,
       section_number: index,
       type: "text",
-      content: editable.innerHTML, // ✅ inline <img> preserved
+      content: editable.innerHTML?.trim() || "<p><br /></p>",
       image_url: null,
     });
   });
 
-  // delete removed sections safely
+  // delete removed sections
   if (currentIds.length > 0) {
     await supabase
       .from("chapter_sections")
       .delete()
       .eq("chapter_id", selectedChapter)
-      .not(
-        "id",
-        "in",
-        `(${currentIds.map((id) => `"${id}"`).join(",")})`
-      );
+      .not("id", "in", `(${currentIds.map(id => `"${id}"`).join(",")})`);
   }
 
   await supabase
     .from("chapter_sections")
     .upsert(payload, { onConflict: "id" });
 }
-
-
-
-
 
   const saveChapter = debounce(async (html: string) => {
     setSaveStatus("saving");
@@ -338,7 +329,7 @@ async function persistHtml(html: string) {
         height: "100vh",
         display: "grid",
         gridTemplateColumns: `${leftWidth}px 6px 1fr`,
-        background: "#F1F5F9",
+        background: "#ffffff",
         paddingBottom: 80,
       }}
     >
@@ -523,7 +514,9 @@ async function persistHtml(html: string) {
               WebkitOverflowScrolling: "touch",
             }}
           >
-            <ChapterReader sections={previewSections} />
+            <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
+              <ChapterReader sections={previewSections} />
+            </View>
           </div>
         </div>
       </div>
