@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "bluephx-editor",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.bluephoenix.editor",
   "build": {
     "frontendDist": "../out/Users/joshuadanieldavid/Downloads/github_repo/bluephx_v2/dist",
     "devUrl": "http://localhost:8081",
