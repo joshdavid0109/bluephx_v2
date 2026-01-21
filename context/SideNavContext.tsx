@@ -16,30 +16,46 @@ const SideNavContext = createContext<SideNavContextType | null>(null);
 export function SideNavProvider({ children }: { children: React.ReactNode }) {
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const [isOpen, setIsOpen] = useState(false);
+  const isAnimating = useRef(false);
 
   const open = () => {
+    if (isOpen || isAnimating.current) return;
+
+    isAnimating.current = true;
     setIsOpen(true);
+
     Animated.timing(translateX, {
       toValue: 0,
       duration: 250,
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      isAnimating.current = false;
+    });
   };
 
   const close = () => {
+    if (!isOpen || isAnimating.current) return;
+
+    isAnimating.current = true;
+
     Animated.timing(translateX, {
       toValue: -DRAWER_WIDTH,
       duration: 250,
       useNativeDriver: true,
-    }).start(() => setIsOpen(false));
+    }).start(() => {
+      setIsOpen(false);
+      isAnimating.current = false;
+    });
   };
-
-  console.log("SideNavContext file loaded");
-
 
   return (
     <SideNavContext.Provider
-      value={{ open, close, isOpen, translateX }}
+      value={{
+        open,
+        close,
+        isOpen,
+        translateX,
+      }}
     >
       {children}
     </SideNavContext.Provider>

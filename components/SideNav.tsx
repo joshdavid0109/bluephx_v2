@@ -22,7 +22,9 @@ type UserProfile = {
   username: string | null;
   first_name?: string | null;
   last_name?: string | null;
+  role?: "admin" | "user" | string | null;
 };
+
 
 export default function SideNav() {
   const { translateX, close } = useSideNav();
@@ -45,11 +47,12 @@ export default function SideNav() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("users")
-        .select("username, first_name, last_name")
-        .eq("id", user.id)
-        .single();
+     const { data, error } = await supabase
+      .from("users")
+      .select("username, first_name, last_name, role")
+      .eq("id", user.id)
+      .single();
+
 
       if (!error && data) {
         setProfile(data);
@@ -133,7 +136,36 @@ export default function SideNav() {
               router.push("/(drawer)/faqs");
             }
           }/>
+
+           {/* SETTINGS */}
+        <Text style={styles.section}>Settings</Text>
+
+        <MenuItem
+          icon="cog-outline"
+          label="Settings"
+          onPress={() => {
+            close();
+            router.push("/(drawer)/settings");
+          }}
+        />
         </View>
+        {profile?.role === "admin" && (
+          <>
+            <Text style={styles.section}>Admin</Text>
+
+            <MenuItem
+              icon="view-dashboard-edit-outline"
+              label="CMS"
+              onPress={() => {
+                close();
+                router.replace("/admin/cms");
+              }}
+            />
+          </>
+        )}
+
+
+
 
         {/* LOGOUT */}
         <View style={styles.footer}>
