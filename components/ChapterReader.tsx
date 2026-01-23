@@ -78,29 +78,35 @@ export function ChapterReader({
     return h;
   };
 
- const highlightHtml = (
-    html: string,
-    query: string,
-    activeIndex: number
-  ) => {
-    if (!query.trim()) return html;
+const highlightHtml = (
+  html: string,
+  query: string,
+  activeIndex: number
+) => {
+  if (!query.trim()) return html;
 
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(escaped, "gi");
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escaped})`, "gi");
 
-    return html.replace(regex, (match) => {
-      const isActive =
-        globalMatchCounter.current === activeIndex;
+  let matchIndex = 0;
 
-      const className = isActive
-        ? "active-search"
-        : "search";
+  return html.replace(
+    />([^<]+)</g, // ✅ ONLY TEXT BETWEEN TAGS
+    (full, textContent) => {
+      const replaced = textContent.replace(regex, (match) => {
+        const isActive = matchIndex === activeIndex;
+        matchIndex++;
 
-      globalMatchCounter.current++;
+        return `<mark class="${
+          isActive ? "active-search" : "search"
+        }">${match}</mark>`;
+      });
 
-      return `<mark class="${className}">${match}</mark>`;
-    });
-  };
+      return `>${replaced}<`;
+    }
+  );
+};
+
 
 
 
