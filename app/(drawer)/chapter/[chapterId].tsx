@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -56,6 +57,64 @@ export default function ChapterSectionsScreen() {
   const [textAlign, setTextAlign] = useState<"left" | "justify">("left");
 
   const resolvedFontFamily = "Poppins_400Regular";
+
+  const scrollRef = useRef<ScrollView>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [matches, setMatches] = useState<
+    { sectionIndex: number; start: number; end: number }[]
+  >([]);
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+
+  useEffect(() => {
+  if (!searchQuery.trim()) {
+    setMatches([]);
+    setActiveMatchIndex(0);
+    return;
+  }
+
+  const results: typeof matches = [];
+
+  sections.forEach((section, sectionIndex) => {
+    if (!section.content) return;
+
+    const text = section.content.toLowerCase();
+    const query = searchQuery.toLowerCase();
+
+    let index = 0;
+    while ((index = text.indexOf(query, index)) !== -1) {
+      results.push({
+        sectionIndex,
+        start: index,
+        end: index + query.length,
+      });
+      index += query.length;
+    }
+  });
+
+  setMatches(results);
+  setActiveMatchIndex(0);
+}, [searchQuery, sections]);
+
+const jumpToMatch = (direction: "next" | "prev") => {
+  if (!matches.length) return;
+
+  const nextIndex =
+    direction === "next"
+      ? (activeMatchIndex + 1) % matches.length
+      : (activeMatchIndex - 1 + matches.length) % matches.length;
+
+  setActiveMatchIndex(nextIndex);
+
+  const match = matches[nextIndex];
+  const yOffset = match.sectionIndex * 160; // tweak if needed
+
+  scrollRef.current?.scrollTo({
+    y: yOffset,
+    animated: true,
+  });
+};
+
 
   useEffect(() => {
     fetchChapterAndSections();
@@ -174,6 +233,32 @@ export default function ChapterSectionsScreen() {
       </View>
 
       <Text style={styles.pageTitle}>Illustrated Codals</Text>
+      
+      <View style={styles.searchBar}>
+        <Feather name="search" size={16} color="#64748B" />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Find in codal…"
+          placeholderTextColor="#94A3B8"
+          style={styles.searchInput}
+        />
+
+        {matches.length > 0 && (
+          <Text style={styles.matchCount}>
+            {activeMatchIndex + 1}/{matches.length}
+          </Text>
+        )}
+
+        <TouchableOpacity onPress={() => jumpToMatch("prev")}>
+          <Feather name="chevron-up" size={18} color="#04183B" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => jumpToMatch("next")}>
+          <Feather name="chevron-down" size={18} color="#04183B" />
+        </TouchableOpacity>
+    </View>
+
 
       {/* PANEL */}
       <Animated.View
@@ -207,6 +292,7 @@ export default function ChapterSectionsScreen() {
 
         {/* CONTENT */}
         <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -222,6 +308,8 @@ export default function ChapterSectionsScreen() {
               lineHeight={lineHeight}
               textAlign={textAlign}
               fontFamily={resolvedFontFamily}
+              searchQuery={searchQuery}
+              activeMatchIndex={activeMatchIndex}
             />
           </View>
           )}
@@ -370,4 +458,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#04183B",
   },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+
+  searchInput: {
+    flex: 1,
+    marginHorizontal: 8,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: "#04183B",
+  },
+
+  matchCount: {
+    marginRight: 8,
+    fontSize: 12,
+    color: "#475569",
+    fontFamily: "Poppins_500Medium",
+  },
+
 });

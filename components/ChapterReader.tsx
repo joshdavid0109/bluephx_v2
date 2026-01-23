@@ -28,7 +28,10 @@ type ChapterSection = {
 type Props = {
   sections: ChapterSection[];
   fontSize?: number;
+  searchQuery?: string;
+  activeMatchIndex?: number;
 };
+
 
 /* ---------------------------------- */
 /* Component                          */
@@ -37,9 +40,13 @@ type Props = {
 export function ChapterReader({
   sections,
   fontSize = 15,
+  searchQuery = "",
+  activeMatchIndex = -1,
 }: Props) {
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === "web";
+
+  const globalMatchCounter = React.useRef(0);
 
   /* ---------------------------------- */
   /* Custom HTML models                 */
@@ -71,13 +78,43 @@ export function ChapterReader({
     return h;
   };
 
+ const highlightHtml = (
+    html: string,
+    query: string,
+    activeIndex: number
+  ) => {
+    if (!query.trim()) return html;
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "gi");
+
+    return html.replace(regex, (match) => {
+      const isActive =
+        globalMatchCounter.current === activeIndex;
+
+      const className = isActive
+        ? "active-search"
+        : "search";
+
+      globalMatchCounter.current++;
+
+      return `<mark class="${className}">${match}</mark>`;
+    });
+  };
+
+
+
   /* ---------------------------------- */
   /* Render                             */
   /* ---------------------------------- */
 
   return (
-    <View style={{ flex: 1, padding: 16, backgroundColor: "#ffffff" }}>
-      {sections.map((section) => (
+  <View style={{ flex: 1, padding: 16, backgroundColor: "#ffffff" }}>
+    {(() => {
+      // 🔥 RESET GLOBAL MATCH COUNTER PER RENDER
+      globalMatchCounter.current = 0;
+
+      return sections.map((section) => (
         <View key={section.id}>
           {/* TEXT SECTION */}
           {section.type === "text" && section.content ? (
@@ -88,138 +125,172 @@ export function ChapterReader({
                 padding: 16,
               }}
             >
-            <RenderHTML
-              contentWidth={maxContentWidth}
-              source={{ html: normalizeHtml(section.content) }}
-              customHTMLElementModels={customHTMLElementModels}
-              enableCSSInlineProcessing={true}
-              ignoredStyles={[]}
-              allowedStyles={[
-                "fontSize",
-                "textAlign",
-                "lineHeight",
-                "marginTop",
-                "marginBottom",
-                "marginLeft",
-                "marginRight",
-                "maxWidth",
-                "display",
-                "width",
-                "height",
-              ]}
-              enableExperimentalMarginCollapsing={true}
-              systemFonts={[
-                "Poppins_400Regular",
-                "Poppins_400Regular_Italic",
-                "Poppins_700Bold",
-                "Poppins_700Bold_Italic",
-              ]}
-              baseStyle={{
-                fontSize,
-                color: "#0F172A",
-                fontFamily: "Poppins_400Regular",
-                textAlign: "justify",
-                backgroundColor: "#ffffff",
-              }}
-              tagsStyles={{
-                div: {
-                  backgroundColor: "#ffffff",
-                },
-                img: {
-                  backgroundColor: "#ffffff",
-                  marginVertical: 8,
-                  borderRadius: 12,
-                },
-                p: {
-                  marginBottom: 8,
+              <RenderHTML
+                contentWidth={maxContentWidth}
+                source={{
+                  html: highlightHtml(
+                    normalizeHtml(section.content),
+                    searchQuery,
+                    activeMatchIndex
+                  ),
+                }}
+                customHTMLElementModels={customHTMLElementModels}
+                enableCSSInlineProcessing={true}
+                ignoredStyles={[]}
+                allowedStyles={[
+                  "fontSize",
+                  "textAlign",
+                  "lineHeight",
+                  "marginTop",
+                  "marginBottom",
+                  "marginLeft",
+                  "marginRight",
+                  "maxWidth",
+                  "display",
+                  "width",
+                  "height",
+                ]}
+                enableExperimentalMarginCollapsing={true}
+                systemFonts={[
+                  "Poppins_400Regular",
+                  "Poppins_400Regular_Italic",
+                  "Poppins_700Bold",
+                  "Poppins_700Bold_Italic",
+                ]}
+                baseStyle={{
+                  fontSize,
+                  color: "#0F172A",
+                  fontFamily: "Poppins_400Regular",
                   textAlign: "justify",
-                },
-                h2: {
-                  fontSize: fontSize + 6,
-                  fontFamily: "Poppins_700Bold",
-                  marginTop: 18,
-                  marginBottom: 10,
-                },
-                h3: {
-                  fontSize: fontSize + 4,
-                  fontFamily: "Poppins_700Bold",
-                  marginTop: 14,
-                  marginBottom: 8,
-                },
-                b: { fontFamily: "Poppins_700Bold" },
-                strong: { fontFamily: "Poppins_700Bold" },
-                i: { fontFamily: "Poppins_400Regular_Italic" },
-                em: { fontFamily: "Poppins_400Regular_Italic" },
-                bi: { fontFamily: "Poppins_700Bold_Italic" },
-                u: { textDecorationLine: "underline" },
-                s: { textDecorationLine: "line-through" },
-                ul: {
-                  paddingLeft: 22,
-                  marginBottom: 10,
-                },
-                ol: {
-                  paddingLeft: 22,
-                  marginBottom: 10,
-                },
-                li: {
-                  marginBottom: 6,
-                  paddingLeft: 2,
-                  alignSelf: "flex-start",
-                },
-                blockquote: {
-                  borderLeftWidth: 3,
-                  borderLeftColor: "#CBD5E1",
-                  paddingLeft: 12,
-                  marginVertical: 12,
-                },
-                code: {
-                  fontFamily: "monospace",
-                  backgroundColor: "#f0f0f0ff",
-                  paddingHorizontal: 6,
-                  paddingVertical: 3,
-                  borderRadius: 4,
-                },
-              }}
-              /* 🔥 Custom image renderer (HTML images) */
-              renderers={{
-                img: ({ tnode }) => {
-                  const src = tnode.attributes.src;
-                  if (!src) return null;
+                  backgroundColor: "#ffffff",
+                }}
+                classesStyles={{
+                  search: {
+                    backgroundColor: "#FDE68A",
+                  },
+                  "active-search": {
+                    backgroundColor: "#F59E0B",
+                  },
+                }}
+                tagsStyles={{
+                  div: {
+                    backgroundColor: "#ffffff",
+                  },
+                  img: {
+                    backgroundColor: "#ffffff",
+                    marginVertical: 8,
+                    borderRadius: 12,
+                  },
+                  p: {
+                    marginBottom: 8,
+                    textAlign: "justify",
+                  },
+                  h2: {
+                    fontSize: fontSize + 6,
+                    fontFamily: "Poppins_700Bold",
+                    marginTop: 18,
+                    marginBottom: 10,
+                  },
+                  h3: {
+                    fontSize: fontSize + 4,
+                    fontFamily: "Poppins_700Bold",
+                    marginTop: 14,
+                    marginBottom: 8,
+                  },
+                  b: { fontFamily: "Poppins_700Bold" },
+                  strong: { fontFamily: "Poppins_700Bold" },
+                  i: { fontFamily: "Poppins_400Regular_Italic" },
+                  em: { fontFamily: "Poppins_400Regular_Italic" },
+                  bi: { fontFamily: "Poppins_700Bold_Italic" },
+                  u: { textDecorationLine: "underline" },
+                  s: { textDecorationLine: "line-through" },
+                  ul: {
+                    paddingLeft: 22,
+                    marginBottom: 10,
+                  },
+                  ol: {
+                    paddingLeft: 22,
+                    marginBottom: 10,
+                  },
+                  li: {
+                    marginBottom: 6,
+                    paddingLeft: 2,
+                    alignSelf: "flex-start",
+                  },
+                  blockquote: {
+                    borderLeftWidth: 3,
+                    borderLeftColor: "#CBD5E1",
+                    paddingLeft: 12,
+                    marginVertical: 12,
+                  },
+                  mark: {
+                    paddingHorizontal: 2,
+                    borderRadius: 3,
+                  },
+                  code: {
+                    fontFamily: "monospace",
+                    backgroundColor: "#f0f0f0ff",
+                    paddingHorizontal: 6,
+                    paddingVertical: 3,
+                    borderRadius: 4,
+                  },
+                }}
+                /* 🔥 Custom image renderer (HTML images) */
+                renderers={{
+                  img: ({ tnode }) => {
+                    const src = tnode.attributes.src;
+                    if (!src) return null;
 
-                  const w = Number(tnode.attributes["data-width"]);
-                  const h = Number(tnode.attributes["data-height"]);
+                    const w = Number(tnode.attributes["data-width"]);
+                    const h = Number(tnode.attributes["data-height"]);
 
-                  return (
-                    <View style={{ alignItems: "center", marginVertical: 16, backgroundColor: "#ffffff"}}>
-                      <Image
-                        source={{ uri: src }}
+                    return (
+                      <View
                         style={{
-                          width: resolveImageWidth(w),
-                          height: resolveImageHeight(w, h),
-                          aspectRatio:
-                            w && h ? w / h : undefined,
-                          borderRadius: 12,
-                          backgroundColor: "#ffffffff",
+                          alignItems: "center",
+                          marginVertical: 16,
+                          backgroundColor: "#ffffff",
                         }}
-                        resizeMode="contain"
-                        onError={(e) =>
-                          console.log("❌ Image load error:", src, e.nativeEvent.error)
-                        }
-                        onLoad={() =>
-                          console.log("✅ Image loaded:", src)
-                        }
-                      />
-                    </View>
-                  );
-                },
-              }}
-            />
+                      >
+                        <Image
+                          source={{ uri: src }}
+                          style={{
+                            width: resolveImageWidth(w),
+                            height: resolveImageHeight(w, h),
+                            aspectRatio:
+                              w && h ? w / h : undefined,
+                            borderRadius: 12,
+                            backgroundColor: "#ffffffff",
+                          }}
+                          resizeMode="contain"
+                          onError={(e) =>
+                            console.log(
+                              "❌ Image load error:",
+                              src,
+                              e.nativeEvent.error
+                            )
+                          }
+                          onLoad={() =>
+                            console.log("✅ Image loaded:", src)
+                          }
+                        />
+                      </View>
+                    );
+                  },
+                }}
+              />
             </View>
           ) : null}
 
           {/* STANDALONE IMAGE SECTION */}
           {section.type === "image" && section.image_url ? (
-            <View style={{ alignItems: "center", marginVertical: 16, backgroundColor: "#ffffff",}}>
+            <View
+              style={{
+                alignItems: "center",
+                marginVertical: 16,
+                backgroundColor: "#ffffff",
+              }}
+            >
               <Image
                 source={{ uri: section.image_url }}
                 style={{
@@ -230,7 +301,8 @@ export function ChapterReader({
                   ),
                   aspectRatio:
                     section.image_width && section.image_height
-                      ? section.image_width / section.image_height
+                      ? section.image_width /
+                        section.image_height
                       : undefined,
                   borderRadius: 12,
                   backgroundColor: "#ffffffff",
@@ -244,13 +316,18 @@ export function ChapterReader({
                   )
                 }
                 onLoad={() =>
-                  console.log("✅ Image loaded:", section.image_url)
+                  console.log(
+                    "✅ Image loaded:",
+                    section.image_url
+                  )
                 }
               />
             </View>
           ) : null}
         </View>
-      ))}
-    </View>
-  );
+      ));
+    })()}
+  </View>
+);
+
 }
