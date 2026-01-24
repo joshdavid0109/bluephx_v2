@@ -2,11 +2,13 @@
   "name": "bluephx",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
@@ -31,8 +33,7 @@
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.9",
     "lucide-react-native": "^0.555.0",
-    "next": "^16.1.2",
-    "quill": "^2.0.3",
+    "quill": "^2.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -44,17 +45,14 @@
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "react-quill": "^2.0.0",
-    "react-quilljs": "^2.0.5",
-    "uuid": "^13.0.0",
-    "yarn": "^1.22.22"
+    "react-quilljs": "^2.0.4",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
-    "@types/react": "19.2.3",
-    "@types/react-dom": "19.2.3",
-    "react-test-renderer": "19.1.0",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.0",
+    "react-test-renderer": "18.3.1",
     "typescript": "~5.9.2"
-    
-  },
-  "private": true
+  }
 }
