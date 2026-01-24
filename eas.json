@@ -10,8 +10,5 @@
         "buildType": "apk"
       }
     }
-  },
-  "cli": {
-    "packageManager": "yarn"
   }
 }
