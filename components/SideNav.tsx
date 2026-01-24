@@ -9,6 +9,7 @@ import {
   Dimensions,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -102,6 +103,11 @@ export default function SideNav() {
           </Text>
         </LinearGradient>
 
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
         {/* MENU */}
         <View style={styles.menu}>
           <MenuItem icon="home" label="Home" onPress={async () => {
@@ -179,7 +185,9 @@ export default function SideNav() {
             }}
           />
         </View>
+        </ScrollView>
       </Animated.View>
+      
     </>
   );
 }
